@@ -27,6 +27,7 @@ model Branch {
   is_active      Boolean        @default(true)
   business_hours BusinessHour[]
   holidays       Holiday[]
+  resources      Resource[]
 
   @@map("branches")
 }
@@ -52,4 +53,36 @@ model Holiday {
   branch       Branch   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
 
   @@map("holidays")
+}
+
+model Service {
+  id                String            @id @default(uuid()) @db.Uuid
+  name              String
+  duration_minutes  Int
+  price             Decimal           @db.Decimal(10, 2)
+  capacity          Int               @default(1)
+  is_active         Boolean           @default(true)
+  service_resources ServiceResource[]
+
+  @@map("services")
+}
+
+model Resource {
+  id        String  @id @default(uuid()) @db.Uuid
+  branch_id String  @db.Uuid
+  name      String
+  type      String
+  is_active Boolean @default(true)
+  branch    Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+
+  @@map("resources")
+}
+
+model ServiceResource {
+  id            String  @id @default(uuid()) @db.Uuid
+  service_id    String  @db.Uuid
+  resource_type String
+  service       Service @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@map("service_resources")
 }
