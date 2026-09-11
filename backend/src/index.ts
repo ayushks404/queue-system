@@ -8,6 +8,10 @@ import resourceRoutes from './modules/catalog/resources.routes';
 import availabilityRoutes from './modules/booking/availability.routes';
 import reservationsRoutes from './modules/booking/reservations.routes';
 import appointmentsRoutes from './modules/booking/appointments.routes';
+import waitlistRoutes from './modules/waitlist/waitlist.routes';
+import { registerWaitlistEventSubscribers } from './modules/waitlist/waitlist.events';
+
+registerWaitlistEventSubscribers();
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -25,6 +29,7 @@ app.use('/api/resources', resourceRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/reservations', reservationsRoutes);
 app.use('/api/appointments', appointmentsRoutes);
+app.use('/api/waitlist', waitlistRoutes);
 
 export async function startServer() {
   await prisma.$connect();
