@@ -16,6 +16,7 @@ model User {
   role          String        @default("CUSTOMER")
   created_at    DateTime      @default(now())
   appointments  Appointment[]
+  reservations  Reservation[]
 
   @@map("users")
 }
@@ -30,6 +31,7 @@ model Branch {
   holidays       Holiday[]
   resources      Resource[]
   appointments   Appointment[]
+  reservations   Reservation[]
 
   @@map("branches")
 }
@@ -66,6 +68,7 @@ model Service {
   is_active         Boolean           @default(true)
   service_resources ServiceResource[]
   appointments      Appointment[]
+  reservations      Reservation[]
 
   @@map("services")
 }
@@ -109,4 +112,21 @@ model Appointment {
 
   @@index([branch_id, appointment_date, status])
   @@map("appointments")
+}
+
+model Reservation {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  branch_id  String   @db.Uuid
+  service_id String   @db.Uuid
+  slot_date  DateTime @db.Date
+  slot_time  String
+  expires_at DateTime
+
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@unique([branch_id, service_id, slot_date, slot_time], name: "branch_service_slot_unique")
+  @@map("reservations")
 }
