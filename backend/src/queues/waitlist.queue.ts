@@ -117,7 +117,7 @@ export async function handleExpiredWaitlistReservation(
   dateStr: string,
   slotTime: string,
   expiryMinutes = 10
-): Promise<{ nextWaitlistEntry: any; reservation: any } | null> {
+): Promise<{ waitlistEntry: any; reservation: any } | null> {
   const reservation = await prisma.reservation.findUnique({
     where: { id: reservationId }
   });
