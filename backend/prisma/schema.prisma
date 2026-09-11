@@ -8,13 +8,14 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(uuid()) @db.Uuid
-  email         String   @unique
+  id            String        @id @default(uuid()) @db.Uuid
+  email         String        @unique
   password_hash String
   name          String
   phone         String?
-  role          String   @default("CUSTOMER")
-  created_at    DateTime @default(now())
+  role          String        @default("CUSTOMER")
+  created_at    DateTime      @default(now())
+  appointments  Appointment[]
 
   @@map("users")
 }
@@ -28,6 +29,7 @@ model Branch {
   business_hours BusinessHour[]
   holidays       Holiday[]
   resources      Resource[]
+  appointments   Appointment[]
 
   @@map("branches")
 }
@@ -63,6 +65,7 @@ model Service {
   capacity          Int               @default(1)
   is_active         Boolean           @default(true)
   service_resources ServiceResource[]
+  appointments      Appointment[]
 
   @@map("services")
 }
@@ -85,4 +88,25 @@ model ServiceResource {
   service       Service @relation(fields: [service_id], references: [id], onDelete: Cascade)
 
   @@map("service_resources")
+}
+
+model Appointment {
+  id                 String   @id @default(uuid()) @db.Uuid
+  appointment_number String   @unique
+  user_id            String   @db.Uuid
+  branch_id          String   @db.Uuid
+  service_id         String   @db.Uuid
+  appointment_date   DateTime @db.Date
+  start_time         String
+  end_time           String
+  status             String   @default("PENDING")
+  idempotency_key    String?  @unique
+  created_at         DateTime @default(now())
+
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@index([branch_id, appointment_date, status])
+  @@map("appointments")
 }
