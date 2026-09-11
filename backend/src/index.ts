@@ -3,6 +3,7 @@ import express from 'express';
 import { prisma } from './lib/prisma';
 import authRoutes from './modules/auth/auth.routes';
 import branchRoutes from './modules/catalog/branches.routes';
+import serviceRoutes from './modules/catalog/services.routes';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -15,6 +16,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/branches', branchRoutes);
+app.use('/api/services', serviceRoutes);
 
 export async function startServer() {
   await prisma.$connect();
