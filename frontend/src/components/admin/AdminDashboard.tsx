@@ -8,14 +8,39 @@ import {
   Calendar,
   Plus,
   Edit2,
+  BarChart2,
+  TrendingUp,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  RefreshCw,
 } from 'lucide-react';
 
+interface ReportSummary {
+  total_bookings: number;
+  completed: number;
+  cancelled: number;
+  no_shows: number;
+  confirmed: number;
+  checked_in: number;
+  in_service: number;
+  total_queue_entries: number;
+  avg_wait_time: number;
+  avg_service_time: number;
+  daily_breakdown: { slot_date: string; count: number }[];
+}
+
 export const AdminDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'branches' | 'services' | 'resources' | 'schedules'>('branches');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'branches' | 'services' | 'resources' | 'schedules'>('analytics');
   const [branches, setBranches] = useState<Branch[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Reports state
+  const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
+  const [reportBranchId, setReportBranchId] = useState<string>('');
+  const [reportsLoading, setReportsLoading] = useState<boolean>(false);
 
   // Branch Modal state
   const [showBranchModal, setShowBranchModal] = useState<boolean>(false);
@@ -68,9 +93,28 @@ export const AdminDashboard: React.FC = () => {
     }
   }, [selectedScheduleBranchId]);
 
+  const loadReports = useCallback(async () => {
+    try {
+      setReportsLoading(true);
+      const query = reportBranchId ? `?branchId=${reportBranchId}` : '';
+      const data = await api.get<{ summary: ReportSummary }>(`/reports/summary${query}`);
+      setReportSummary(data.summary);
+    } catch (err) {
+      console.error('Failed to load reports summary:', err);
+    } finally {
+      setReportsLoading(false);
+    }
+  }, [reportBranchId]);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (activeTab === 'analytics') {
+      loadReports();
+    }
+  }, [activeTab, loadReports]);
 
   // Branch CRUD handlers
   const handleSaveBranch = async (e: React.FormEvent) => {
@@ -188,15 +232,21 @@ export const AdminDashboard: React.FC = () => {
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '1.5rem 1rem' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.5rem' }}>
         <div>
-          <h2>System Catalog & Configuration</h2>
+          <h2>System Administration & Intelligence</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            Manage branches, services, resource allocations, and operating schedules
+            Live performance analytics, catalog configuration, and operational schedules
           </p>
         </div>
       </div>
 
       {/* Sub tabs */}
-      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.5rem', flexWrap: 'wrap' }}>
+        <button
+          className={`btn btn-sm ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('analytics')}
+        >
+          <BarChart2 size={15} /> Analytics & Reports
+        </button>
         <button
           className={`btn btn-sm ${activeTab === 'branches' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('branches')}
@@ -227,6 +277,134 @@ export const AdminDashboard: React.FC = () => {
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Loading catalog...</div>
       ) : (
         <>
+          {/* ANALYTICS & REPORTS TAB */}
+          {activeTab === 'analytics' && (
+            <div>
+              {/* Filter Bar */}
+              <div className="glass-card" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <MapPin size={16} color="var(--accent-primary)" />
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Filter Branch:</span>
+                  <select
+                    className="form-select"
+                    value={reportBranchId}
+                    onChange={(e) => setReportBranchId(e.target.value)}
+                    style={{ width: 'auto', minWidth: '180px' }}
+                  >
+                    <option value="">All Branches (System-wide)</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <button className="btn btn-secondary btn-sm" onClick={loadReports} disabled={reportsLoading}>
+                  <RefreshCw size={14} /> Refresh Analytics
+                </button>
+              </div>
+
+              {reportsLoading && !reportSummary ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                  Calculating aggregates...
+                </div>
+              ) : reportSummary ? (
+                <>
+                  {/* KPI Stat Cards */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div className="glass-card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Bookings</span>
+                        <TrendingUp size={16} color="var(--accent-primary)" />
+                      </div>
+                      <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                        {reportSummary.total_bookings}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)', marginTop: '0.2rem' }}>
+                        Confirmed & Historical
+                      </div>
+                    </div>
+
+                    <div className="glass-card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Completed</span>
+                        <CheckCircle2 size={16} color="var(--accent-emerald)" />
+                      </div>
+                      <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#34d399' }}>
+                        {reportSummary.completed}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                        Successfully Served
+                      </div>
+                    </div>
+
+                    <div className="glass-card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Cancelled & No-Shows</span>
+                        <XCircle size={16} color="var(--accent-rose)" />
+                      </div>
+                      <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fb7185' }}>
+                        {reportSummary.cancelled + reportSummary.no_shows}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                        {reportSummary.cancelled} Cancelled · {reportSummary.no_shows} No-show
+                      </div>
+                    </div>
+
+                    <div className="glass-card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Avg Wait Time</span>
+                        <Clock size={16} color="var(--accent-amber)" />
+                      </div>
+                      <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fbbf24' }}>
+                        {reportSummary.avg_wait_time}m
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                        Queue to Service Counter
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Visual Breakdown Bar Chart */}
+                  <div className="glass-card" style={{ marginBottom: '1.5rem' }}>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <BarChart2 size={18} color="var(--accent-primary)" />
+                      Appointment Status Distribution
+                    </h3>
+
+                    {reportSummary.total_bookings === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-faint)' }}>
+                        No appointment data available for the selected filters.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                        {[
+                          { label: 'Completed', count: reportSummary.completed, color: 'var(--accent-emerald)' },
+                          { label: 'Confirmed / Pending', count: reportSummary.confirmed + reportSummary.checked_in, color: 'var(--accent-primary)' },
+                          { label: 'In Service', count: reportSummary.in_service, color: 'var(--accent-cyan)' },
+                          { label: 'Cancelled', count: reportSummary.cancelled, color: 'var(--accent-rose)' },
+                          { label: 'No Shows', count: reportSummary.no_shows, color: 'var(--text-faint)' },
+                        ].map((stat) => {
+                          const percent = Math.round((stat.count / (reportSummary.total_bookings || 1)) * 100);
+                          return (
+                            <div key={stat.label}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+                                <span>{stat.label}</span>
+                                <span style={{ fontWeight: 600 }}>{stat.count} ({percent}%)</span>
+                              </div>
+                              <div style={{ height: '8px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${percent}%`, background: stat.color, borderRadius: '4px', transition: 'width 0.5s ease' }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          )}
+
           {/* BRANCHES TAB */}
           {activeTab === 'branches' && (
             <div>
