@@ -10,9 +10,12 @@ import reservationsRoutes from './modules/booking/reservations.routes';
 import appointmentsRoutes from './modules/booking/appointments.routes';
 import waitlistRoutes from './modules/waitlist/waitlist.routes';
 import queueRoutes from './modules/queue/queue.routes';
+import notificationsRoutes from './modules/notifications/notifications.routes';
 import { registerWaitlistEventSubscribers } from './modules/waitlist/waitlist.events';
+import { registerNotificationSubscribers } from './modules/notifications/notifications.events';
 
 registerWaitlistEventSubscribers();
+registerNotificationSubscribers();
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -32,6 +35,7 @@ app.use('/api/reservations', reservationsRoutes);
 app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/waitlist', waitlistRoutes);
 app.use('/api/queue', queueRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 import http from 'http';
 import { initSocketServer } from './realtime/socket';
