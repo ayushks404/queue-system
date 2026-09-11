@@ -19,3 +19,9 @@ export function subscribe<T = any>(event: string, handler: EventHandler<T>): () 
 export function clearAllSubscriptions(): void {
   eventEmitter.removeAllListeners();
 }
+
+export const eventBus = {
+  publish,
+  subscribe,
+  clearAllSubscriptions
+};
