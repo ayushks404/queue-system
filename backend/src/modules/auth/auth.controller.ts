@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../lib/prisma';
+import { redis } from '../../lib/redis';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key_queue_system_2026';
 
@@ -116,6 +117,97 @@ export async function login(req: Request, res: Response) {
         },
         accessToken,
         refreshToken
+      }
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message || 'Internal server error'
+      }
+    });
+  }
+}
+
+export async function refresh(req: Request, res: Response) {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'refreshToken is required'
+        }
+      });
+    }
+
+    // Check revocation in Redis
+    if (redis.status !== 'ready' && redis.status !== 'connecting' && redis.status !== 'connect') {
+      await redis.connect().catch(() => {});
+    }
+
+    const isRevoked = await redis.get(`revoked:${refreshToken}`);
+    if (isRevoked) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Refresh token has been revoked'
+        }
+      });
+    }
+
+    const decoded = jwt.verify(refreshToken, JWT_SECRET) as any;
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Invalid token type'
+        }
+      });
+    }
+
+    const newAccessToken = jwt.sign(
+      { id: decoded.id, email: decoded.email, role: decoded.role },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        accessToken: newAccessToken
+      }
+    });
+  } catch (error: any) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Invalid or expired refresh token'
+      }
+    });
+  }
+}
+
+export async function logout(req: Request, res: Response) {
+  try {
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      if (redis.status !== 'ready' && redis.status !== 'connecting' && redis.status !== 'connect') {
+        await redis.connect().catch(() => {});
+      }
+      // Store in Redis with 7 days TTL (604800 seconds)
+      await redis.setex(`revoked:${refreshToken}`, 604800, 'true');
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        message: 'Logged out successfully'
       }
     });
   } catch (error: any) {
