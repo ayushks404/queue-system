@@ -6,10 +6,12 @@ import {
   getUserWaitlists,
   cancelWaitlistEntry
 } from './waitlist.controller';
+import { validate } from '../../middleware/validate';
+import { createWaitlistSchema } from '../../middleware/schemas';
 
 const router = Router();
 
-router.post('/', authenticate, joinWaitlist);
+router.post('/', authenticate, validate(createWaitlistSchema), joinWaitlist);
 router.get('/', authenticate, getUserWaitlists);
 router.get('/:id/position', authenticate, getWaitlistPosition);
 router.patch('/:id/cancel', authenticate, cancelWaitlistEntry);

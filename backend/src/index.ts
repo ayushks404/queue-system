@@ -12,6 +12,8 @@ import waitlistRoutes from './modules/waitlist/waitlist.routes';
 import queueRoutes from './modules/queue/queue.routes';
 import notificationsRoutes from './modules/notifications/notifications.routes';
 import reportsRoutes from './modules/reports/reports.routes';
+import cors from 'cors';
+import { authLimiter, appointmentsLimiter } from './middleware/rateLimiter';
 import { registerWaitlistEventSubscribers } from './modules/waitlist/waitlist.events';
 import { registerNotificationSubscribers } from './modules/notifications/notifications.events';
 
@@ -21,19 +23,39 @@ registerNotificationSubscribers();
 const app = express();
 const port = process.env.PORT || 3000;
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (such as curl, supertest, mobile apps)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/branches', branchRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/reservations', reservationsRoutes);
-app.use('/api/appointments', appointmentsRoutes);
+app.use('/api/appointments', appointmentsLimiter, appointmentsRoutes);
 app.use('/api/waitlist', waitlistRoutes);
 app.use('/api/queue', queueRoutes);
 app.use('/api/notifications', notificationsRoutes);
