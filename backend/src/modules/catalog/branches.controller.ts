@@ -1,6 +1,27 @@
 import { Request, Response } from 'express';
 import { prisma } from '../../lib/prisma';
 
+export async function getActiveBranches(req: Request, res: Response) {
+  try {
+    const branches = await prisma.branch.findMany({
+      where: { is_active: true },
+      orderBy: { name: 'asc' }
+    });
+    return res.status(200).json({
+      success: true,
+      data: branches
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message || 'Internal server error'
+      }
+    });
+  }
+}
+
 export async function createBranch(req: Request, res: Response) {
   try {
     const { name, address, phone, is_active } = req.body;

@@ -1,6 +1,31 @@
 import { Request, Response } from 'express';
 import { prisma } from '../../lib/prisma';
 
+export async function getActiveServices(req: Request, res: Response) {
+  try {
+    const services = await prisma.service.findMany({
+      where: { is_active: true },
+      include: {
+        service_resources: true
+      },
+      orderBy: { name: 'asc' }
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: services
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message || 'Internal server error'
+      }
+    });
+  }
+}
+
 export async function createService(req: Request, res: Response) {
   try {
     const { name, duration_minutes, price, capacity, is_active } = req.body;

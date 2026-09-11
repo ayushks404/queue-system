@@ -1,12 +1,15 @@
 import { Router } from 'express';
-import { createBranch, getBranchesAdmin, getBranchById, updateBranch } from './branches.controller';
+import { getActiveBranches, createBranch, getBranchesAdmin, getBranchById, updateBranch } from './branches.controller';
 import { setBusinessHours, getBusinessHours, createHoliday, getHolidays, deleteHoliday } from './schedules.controller';
 import { createResource, getResourcesByBranch } from './resources.controller';
 import { authenticate, requireRole } from '../auth/auth.middleware';
 
 const router = Router();
 
-// Branch endpoints
+// Public endpoint (Active branches only, no auth)
+router.get('/', getActiveBranches);
+
+// Admin Branch endpoints
 router.post('/', authenticate, requireRole('ADMIN'), createBranch);
 router.get('/admin', authenticate, requireRole('ADMIN'), getBranchesAdmin);
 router.get('/:id', authenticate, requireRole('ADMIN'), getBranchById);

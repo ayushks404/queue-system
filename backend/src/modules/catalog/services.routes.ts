@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  getActiveServices,
   createService,
   getServicesAdmin,
   getServiceById,
@@ -11,6 +12,10 @@ import { authenticate, requireRole } from '../auth/auth.middleware';
 
 const router = Router();
 
+// Public endpoint (Active services only, no auth)
+router.get('/', getActiveServices);
+
+// Admin Service endpoints
 router.post('/', authenticate, requireRole('ADMIN'), createService);
 router.get('/admin', authenticate, requireRole('ADMIN'), getServicesAdmin);
 router.get('/:id', authenticate, requireRole('ADMIN'), getServiceById);
