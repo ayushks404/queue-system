@@ -5,6 +5,7 @@ import authRoutes from './modules/auth/auth.routes';
 import branchRoutes from './modules/catalog/branches.routes';
 import serviceRoutes from './modules/catalog/services.routes';
 import resourceRoutes from './modules/catalog/resources.routes';
+import availabilityRoutes from './modules/booking/availability.routes';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -19,6 +20,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/branches', branchRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/resources', resourceRoutes);
+app.use('/api/availability', availabilityRoutes);
 
 export async function startServer() {
   await prisma.$connect();
