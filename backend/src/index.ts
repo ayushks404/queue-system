@@ -33,10 +33,15 @@ app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/waitlist', waitlistRoutes);
 app.use('/api/queue', queueRoutes);
 
+import http from 'http';
+import { initSocketServer } from './realtime/socket';
+
 export async function startServer() {
   await prisma.$connect();
   console.log('Database connected successfully');
-  return app.listen(port, () => {
+  const server = http.createServer(app);
+  initSocketServer(server);
+  return server.listen(port, () => {
     console.log(`Backend server listening on port ${port}`);
   });
 }
