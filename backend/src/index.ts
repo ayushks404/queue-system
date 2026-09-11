@@ -9,6 +9,7 @@ import availabilityRoutes from './modules/booking/availability.routes';
 import reservationsRoutes from './modules/booking/reservations.routes';
 import appointmentsRoutes from './modules/booking/appointments.routes';
 import waitlistRoutes from './modules/waitlist/waitlist.routes';
+import queueRoutes from './modules/queue/queue.routes';
 import { registerWaitlistEventSubscribers } from './modules/waitlist/waitlist.events';
 
 registerWaitlistEventSubscribers();
@@ -30,6 +31,7 @@ app.use('/api/availability', availabilityRoutes);
 app.use('/api/reservations', reservationsRoutes);
 app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/waitlist', waitlistRoutes);
+app.use('/api/queue', queueRoutes);
 
 export async function startServer() {
   await prisma.$connect();
