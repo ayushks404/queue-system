@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { createBranch, getBranchesAdmin, getBranchById, updateBranch } from './branches.controller';
 import { setBusinessHours, getBusinessHours, createHoliday, getHolidays, deleteHoliday } from './schedules.controller';
+import { createResource, getResourcesByBranch } from './resources.controller';
 import { authenticate, requireRole } from '../auth/auth.middleware';
 
 const router = Router();
@@ -17,5 +18,9 @@ router.get('/:branchId/business-hours', authenticate, requireRole('ADMIN'), getB
 router.post('/:branchId/holidays', authenticate, requireRole('ADMIN'), createHoliday);
 router.get('/:branchId/holidays', authenticate, requireRole('ADMIN'), getHolidays);
 router.delete('/:branchId/holidays/:holidayId', authenticate, requireRole('ADMIN'), deleteHoliday);
+
+// Resource endpoints per branch
+router.post('/:branchId/resources', authenticate, requireRole('ADMIN'), createResource);
+router.get('/:branchId/resources', authenticate, requireRole('ADMIN'), getResourcesByBranch);
 
 export default router;
