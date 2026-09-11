@@ -8,15 +8,17 @@ datasource db {
 }
 
 model User {
-  id            String        @id @default(uuid()) @db.Uuid
-  email         String        @unique
+  id            String         @id @default(uuid()) @db.Uuid
+  email         String         @unique
   password_hash String
   name          String
   phone         String?
-  role          String        @default("CUSTOMER")
-  created_at    DateTime      @default(now())
+  role          String         @default("CUSTOMER")
+  created_at    DateTime       @default(now())
   appointments  Appointment[]
   reservations  Reservation[]
+  waitlists     Waitlist[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -32,6 +34,8 @@ model Branch {
   resources      Resource[]
   appointments   Appointment[]
   reservations   Reservation[]
+  waitlists      Waitlist[]
+  queue_entries  QueueEntry[]
 
   @@map("branches")
 }
@@ -69,17 +73,19 @@ model Service {
   service_resources ServiceResource[]
   appointments      Appointment[]
   reservations      Reservation[]
+  waitlists         Waitlist[]
 
   @@map("services")
 }
 
 model Resource {
-  id        String  @id @default(uuid()) @db.Uuid
-  branch_id String  @db.Uuid
-  name      String
-  type      String
-  is_active Boolean @default(true)
-  branch    Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  id                    String                @id @default(uuid()) @db.Uuid
+  branch_id             String                @db.Uuid
+  name                  String
+  type                  String
+  is_active             Boolean               @default(true)
+  branch                Branch                @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  appointment_resources AppointmentResource[]
 
   @@map("resources")
 }
@@ -94,24 +100,37 @@ model ServiceResource {
 }
 
 model Appointment {
-  id                 String   @id @default(uuid()) @db.Uuid
-  appointment_number String   @unique
-  user_id            String   @db.Uuid
-  branch_id          String   @db.Uuid
-  service_id         String   @db.Uuid
-  appointment_date   DateTime @db.Date
-  start_time         String
-  end_time           String
-  status             String   @default("PENDING")
-  idempotency_key    String?  @unique
-  created_at         DateTime @default(now())
-
-  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  branch  Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  service Service @relation(fields: [service_id], references: [id], onDelete: Cascade)
+  id                    String                @id @default(uuid()) @db.Uuid
+  appointment_number    String                @unique
+  user_id               String                @db.Uuid
+  branch_id             String                @db.Uuid
+  service_id            String                @db.Uuid
+  appointment_date      DateTime              @db.Date
+  start_time            String
+  end_time              String
+  status                String                @default("PENDING")
+  idempotency_key       String?               @unique
+  created_at            DateTime              @default(now())
+  user                  User                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  branch                Branch                @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  service               Service               @relation(fields: [service_id], references: [id], onDelete: Cascade)
+  appointment_resources AppointmentResource[]
+  queue_entries         QueueEntry[]
+  audit_logs            AuditLog[]
 
   @@index([branch_id, appointment_date, status])
   @@map("appointments")
+}
+
+model AppointmentResource {
+  id             String      @id @default(uuid()) @db.Uuid
+  appointment_id String      @db.Uuid
+  resource_id    String      @db.Uuid
+  appointment    Appointment @relation(fields: [appointment_id], references: [id], onDelete: Cascade)
+  resource       Resource    @relation(fields: [resource_id], references: [id], onDelete: Cascade)
+
+  @@unique([resource_id, appointment_id], name: "resource_appointment_unique")
+  @@map("appointment_resources")
 }
 
 model Reservation {
@@ -122,11 +141,68 @@ model Reservation {
   slot_date  DateTime @db.Date
   slot_time  String
   expires_at DateTime
-
-  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  branch  Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  service Service @relation(fields: [service_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  branch     Branch   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  service    Service  @relation(fields: [service_id], references: [id], onDelete: Cascade)
 
   @@unique([branch_id, service_id, slot_date, slot_time], name: "branch_service_slot_unique")
   @@map("reservations")
+}
+
+model Waitlist {
+  id             String   @id @default(uuid()) @db.Uuid
+  user_id        String   @db.Uuid
+  branch_id      String   @db.Uuid
+  service_id     String   @db.Uuid
+  requested_date DateTime @db.Date
+  position       Int      @default(1)
+  status         String   @default("WAITING")
+  created_at     DateTime @default(now())
+  user           User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  branch         Branch   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  service        Service  @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@map("waitlist")
+}
+
+model QueueEntry {
+  id             String       @id @default(uuid()) @db.Uuid
+  branch_id      String       @db.Uuid
+  appointment_id String?      @db.Uuid
+  customer_name  String
+  phone          String?
+  priority       String       @default("NORMAL")
+  priority_rank  Int          @default(1)
+  status         String       @default("WAITING")
+  queue_number   Int
+  created_at     DateTime     @default(now())
+  branch         Branch       @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  appointment    Appointment? @relation(fields: [appointment_id], references: [id], onDelete: SetNull)
+
+  @@index([branch_id, status, priority_rank(sort: Desc), created_at(sort: Asc)], name: "queue_entries_call_next_idx")
+  @@map("queue_entries")
+}
+
+model Notification {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  type       String
+  message    String
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id             String      @id @default(uuid()) @db.Uuid
+  appointment_id String      @db.Uuid
+  action         String
+  old_status     String?
+  new_status     String?
+  created_at     DateTime    @default(now())
+  appointment    Appointment @relation(fields: [appointment_id], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
 }
