@@ -18,6 +18,12 @@ import {
   X,
 } from 'lucide-react';
 
+const PRIORITY_LABELS: Record<string, string> = {
+  NORMAL: 'Routine',
+  PRIORITY: 'Senior / Expecting Mother',
+  EMERGENCY: 'Emergency',
+};
+
 export const StaffDashboard: React.FC = () => {
   const { socket, joinBranch } = useSocket();
 
@@ -142,7 +148,7 @@ export const StaffDashboard: React.FC = () => {
     };
   }, [socket, selectedBranchId, fetchBranchData]);
 
-  // Handle Call Next Customer
+  // Handle Call Next Patient
   const handleCallNext = async () => {
     if (!selectedBranchId) return;
     try {
@@ -152,10 +158,10 @@ export const StaffDashboard: React.FC = () => {
         setActiveTicket(data.queueEntry);
         await fetchBranchData();
       } else {
-        setFeedbackMessage({ type: 'info', text: 'No waiting customers in the queue.' });
+        setFeedbackMessage({ type: 'info', text: 'No waiting patients in the queue.' });
       }
     } catch (err: any) {
-      setFeedbackMessage({ type: 'info', text: err.message || 'No waiting customers in the queue.' });
+      setFeedbackMessage({ type: 'info', text: err.message || 'No waiting patients in the queue.' });
     } finally {
       setCallingNext(false);
     }
@@ -317,12 +323,12 @@ export const StaffDashboard: React.FC = () => {
           </div>
           <h3 style={{ fontSize: '1.35rem' }}>
             {activeTicket
-              ? `Currently Serving Ticket #${activeTicket.queue_number}`
+              ? `Currently Serving Token #${activeTicket.queue_number}`
               : 'Counter Available'}
           </h3>
           {activeTicket && (
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-              Customer: <strong>{activeTicket.customer_name}</strong> · Priority: <strong>{activeTicket.priority}</strong>
+              Patient: <strong>{activeTicket.customer_name}</strong> · Priority: <strong>{PRIORITY_LABELS[activeTicket.priority] || activeTicket.priority}</strong>
             </div>
           )}
         </div>
@@ -333,7 +339,7 @@ export const StaffDashboard: React.FC = () => {
             onClick={() => setShowWalkInModal(true)}
             style={{ padding: '0.75rem 1.25rem' }}
           >
-            <UserPlus size={18} /> New Walk-In
+            <UserPlus size={18} /> New Walk-In Patient
           </button>
 
           {activeTicket ? (
@@ -371,14 +377,10 @@ export const StaffDashboard: React.FC = () => {
               className="btn btn-primary"
               onClick={handleCallNext}
               disabled={callingNext || waitingTickets.length === 0}
-              style={{
-                padding: '0.75rem 1.75rem',
-                fontSize: '1rem',
-                boxShadow: waitingTickets.length > 0 ? 'var(--glow-indigo)' : 'none',
-              }}
+              style={{ padding: '0.75rem 1.5rem', fontSize: '1rem', fontWeight: 700 }}
             >
               <Volume2 size={18} />
-              {callingNext ? 'Calling Next...' : 'Call Next Customer'}
+              {callingNext ? 'Calling Next...' : 'Call Next Patient'}
             </button>
           )}
         </div>
@@ -431,12 +433,12 @@ export const StaffDashboard: React.FC = () => {
                 </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>
-                    Ticket #{removedTicketInfo.queueNumber} Removed from Live Queue
+                    Token #{removedTicketInfo.queueNumber} Removed from Live Queue
                   </div>
                   <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    Customer: <strong>{removedTicketInfo.customerName}</strong>
-                    {removedTicketInfo.serviceName ? ` · Service: ${removedTicketInfo.serviceName}` : ''}
-                    {removedTicketInfo.priority ? ` · Priority: ${removedTicketInfo.priority}` : ''}
+                    Patient: <strong>{removedTicketInfo.customerName}</strong>
+                    {removedTicketInfo.serviceName ? ` · Department: ${removedTicketInfo.serviceName}` : ''}
+                    {removedTicketInfo.priority ? ` · Priority: ${PRIORITY_LABELS[removedTicketInfo.priority] || removedTicketInfo.priority}` : ''}
                     {' · '}
                     <span style={{ color: 'var(--text-faint)' }}>
                       {removedTicketInfo.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -488,7 +490,7 @@ export const StaffDashboard: React.FC = () => {
                         #{ticket.queue_number}
                       </span>
                       <span className={`badge badge-priority-${ticket.priority.toLowerCase()}`}>
-                        {ticket.priority}
+                        {PRIORITY_LABELS[ticket.priority] || ticket.priority}
                       </span>
                     </div>
 
@@ -614,51 +616,60 @@ export const StaffDashboard: React.FC = () => {
       {showWalkInModal && (
         <div className="modal-overlay" onClick={() => setShowWalkInModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <UserPlus size={20} color="var(--accent-primary)" /> Register Walk-In Customer
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <UserPlus size={20} color="var(--accent-primary)" />
+              <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Register Walk-In Patient</h3>
+            </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-              Issue a sequential daily queue ticket with optional priority tier.
+              Issue a sequential daily token with optional priority tier.
             </p>
 
             {walkInError && (
-              <div style={{ background: 'rgba(244, 63, 94, 0.15)', color: '#fb7185', padding: '0.75rem', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+              <div style={{
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-sm)',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: 'var(--accent-rose)',
+                fontSize: '0.85rem',
+                marginBottom: '1rem',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+              }}>
                 {walkInError}
               </div>
             )}
 
             <form onSubmit={handleCreateWalkIn}>
               <div className="form-group">
-                <label className="form-label">Customer Name</label>
+                <label className="form-label">Patient Name</label>
                 <input
                   type="text"
                   required
                   className="form-input"
-                  placeholder="e.g. Alex Morgan"
+                  placeholder="e.g. John Doe"
                   value={walkInName}
                   onChange={(e) => setWalkInName(e.target.value)}
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Customer Phone (Optional)</label>
+                <label className="form-label">Patient Phone (Optional)</label>
                 <input
                   type="tel"
                   className="form-input"
-                  placeholder="+1 555-0199"
+                  placeholder="e.g. +1 555 0199"
                   value={walkInPhone}
                   onChange={(e) => setWalkInPhone(e.target.value)}
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Service (Optional)</label>
+                <label className="form-label">Department / Consultation (Optional)</label>
                 <select
                   className="form-select"
                   value={walkInServiceId}
                   onChange={(e) => setWalkInServiceId(e.target.value)}
                 >
-                  <option value="">General Inquiries</option>
+                  <option value="">General Triage / OPD</option>
                   {services.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name} ({s.duration_minutes}m)
@@ -668,14 +679,14 @@ export const StaffDashboard: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Queue Priority Tier</label>
+                <label className="form-label">Priority Tier</label>
                 <select
                   className="form-select"
                   value={walkInPriority}
                   onChange={(e) => setWalkInPriority(e.target.value as any)}
                 >
-                  <option value="NORMAL">Normal Priority (Standard FIFO)</option>
-                  <option value="PRIORITY">Priority (Elderly, VIP, Urgent)</option>
+                  <option value="NORMAL">Routine (Standard FIFO)</option>
+                  <option value="PRIORITY">Senior Citizen / Expecting Mother</option>
                   <option value="EMERGENCY">Emergency (Immediate Dispatch)</option>
                 </select>
               </div>
@@ -730,13 +741,13 @@ export const StaffDashboard: React.FC = () => {
 
             <div className="glass-card" style={{ padding: '1rem', marginBottom: '1.25rem', background: 'rgba(15, 23, 42, 0.4)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Ticket Number</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Token Number</span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-main)' }}>
                   #{ticketToRemove.queue_number}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Customer</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Patient</span>
                 <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{ticketToRemove.customer_name}</span>
               </div>
               {ticketToRemove.phone && (
@@ -748,7 +759,7 @@ export const StaffDashboard: React.FC = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Priority</span>
                 <span className={`badge badge-priority-${ticketToRemove.priority.toLowerCase()}`}>
-                  {ticketToRemove.priority}
+                  {PRIORITY_LABELS[ticketToRemove.priority] || ticketToRemove.priority}
                 </span>
               </div>
             </div>
