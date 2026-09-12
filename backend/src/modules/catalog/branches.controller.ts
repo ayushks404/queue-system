@@ -40,7 +40,14 @@ export async function createBranch(req: Request, res: Response) {
         name,
         address,
         phone,
-        is_active: is_active !== undefined ? Boolean(is_active) : true
+        is_active: is_active !== undefined ? Boolean(is_active) : true,
+        business_hours: {
+          create: [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+            day_of_week: day,
+            open_time: '09:00',
+            close_time: '17:00'
+          }))
+        }
       }
     });
 

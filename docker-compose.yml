@@ -48,6 +48,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-queue_db}?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-supersecret_jwt_key_queue_system_2026}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@queue.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminPassword123!}
@@ -74,6 +75,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-queue_db}?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-supersecret_jwt_key_queue_system_2026}
 
   frontend:

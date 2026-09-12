@@ -82,7 +82,17 @@ export function computeAvailableSlots(
   }
 
   const dayOfWeek = getDayOfWeek(date);
-  const businessHours = branch.business_hours || branch.businessHours || [];
+  const rawHours = branch.business_hours || branch.businessHours || [];
+  const businessHours: BusinessHourInput[] = rawHours.length > 0
+    ? rawHours
+    : [0, 1, 2, 3, 4, 5, 6].map((d) => ({
+        day_of_week: d,
+        open_time: '09:00',
+        close_time: '17:00',
+        break_start: null,
+        break_end: null,
+      }));
+
   const todayHours = businessHours.find((bh) => bh.day_of_week === dayOfWeek);
 
   if (!todayHours) {

@@ -3,6 +3,8 @@ import { getActiveBranches, createBranch, getBranchesAdmin, getBranchById, updat
 import { setBusinessHours, getBusinessHours, createHoliday, getHolidays, deleteHoliday } from './schedules.controller';
 import { createResource, getResourcesByBranch } from './resources.controller';
 import { authenticate, requireRole } from '../auth/auth.middleware';
+import { validate } from '../../middleware/validate';
+import { createBranchSchema, updateBranchSchema } from '../../middleware/schemas';
 
 const router = Router();
 
@@ -10,10 +12,10 @@ const router = Router();
 router.get('/', getActiveBranches);
 
 // Admin Branch endpoints
-router.post('/', authenticate, requireRole('ADMIN'), createBranch);
+router.post('/', authenticate, requireRole('ADMIN'), validate(createBranchSchema), createBranch);
 router.get('/admin', authenticate, requireRole('ADMIN'), getBranchesAdmin);
 router.get('/:id', authenticate, requireRole('ADMIN'), getBranchById);
-router.patch('/:id', authenticate, requireRole('ADMIN'), updateBranch);
+router.patch('/:id', authenticate, requireRole('ADMIN'), validate(updateBranchSchema), updateBranch);
 
 // Schedule & Holiday endpoints per branch
 router.post('/:branchId/business-hours', authenticate, requireRole('ADMIN'), setBusinessHours);
