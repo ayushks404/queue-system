@@ -12,17 +12,180 @@ function calculateEndTime(startTime: string, durationMinutes: number): string {
   return `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
 }
 
+export async function listAppointments(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    const { branchId, branch_id, date, appointment_date, status } = req.query;
+
+    const targetBranchId = (branchId || branch_id) as string | undefined;
+    const targetDateStr = (date || appointment_date) as string | undefined;
+    const targetStatus = status as string | undefined;
+
+    const where: any = {};
+
+    if (userRole === 'CUSTOMER') {
+      where.user_id = userId;
+    } else {
+      if (targetBranchId) {
+        where.branch_id = targetBranchId;
+      }
+    }
+
+    if (targetDateStr) {
+      const normalizedDateStr = targetDateStr.split('T')[0];
+      where.appointment_date = new Date(`${normalizedDateStr}T00:00:00.000Z`);
+    }
+
+    if (targetStatus) {
+      where.status = targetStatus;
+    }
+
+    const appointments = await prisma.appointment.findMany({
+      where,
+      include: {
+        branch: { select: { id: true, name: true, address: true } },
+        service: { select: { id: true, name: true, duration_minutes: true, price: true } },
+        user: { select: { id: true, name: true, email: true, phone: true } }
+      },
+      orderBy: [
+        { appointment_date: 'asc' },
+        { start_time: 'asc' }
+      ]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: appointments
+    });
+  } catch (error) {
+    console.error('Error listing appointments:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to list appointments'
+      }
+    });
+  }
+}
+
+export async function confirmReservationForUser(
+  reservationId: string,
+  userId: string,
+  options: { idempotencyKey?: string | null } = {}
+): Promise<{ appointment: any }> {
+  const idempotencyKey = options.idempotencyKey || null;
+
+  if (idempotencyKey) {
+    const existing = await prisma.appointment.findFirst({
+      where: { idempotency_key: idempotencyKey, user_id: userId },
+      include: {
+        branch: { select: { id: true, name: true, address: true } },
+        service: { select: { id: true, name: true, duration_minutes: true, price: true } }
+      }
+    });
+    if (existing) return { appointment: existing };
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const reservations: any[] = await tx.$queryRaw`
+      SELECT * FROM "reservations" WHERE "id" = ${reservationId}::uuid FOR UPDATE
+    `;
+    if (!reservations || reservations.length === 0) throw new Error('NOT_FOUND');
+    const reservation = reservations[0];
+    if (reservation.user_id !== userId) throw new Error('FORBIDDEN');
+    if (new Date(reservation.expires_at).getTime() <= Date.now()) throw new Error('RESERVATION_EXPIRED');
+
+    const service = await tx.service.findUnique({ where: { id: reservation.service_id } });
+    if (!service) throw new Error('SERVICE_NOT_FOUND');
+
+    const requiredResourceTypes = await tx.serviceResource.findMany({
+      where: { service_id: reservation.service_id }
+    });
+    const uniqueTypes = [...new Set(requiredResourceTypes.map((rt) => rt.resource_type))];
+    const assignedResourceIds: string[] = [];
+
+    for (const type of uniqueTypes) {
+      const available: any[] = await tx.$queryRaw`
+        SELECT r.id FROM "resources" r
+        WHERE r.branch_id = ${reservation.branch_id}::uuid
+          AND r.type = ${type}
+          AND r.is_active = true
+          AND NOT EXISTS (
+            SELECT 1 FROM "appointment_resources" ar
+            JOIN "appointments" ap ON ap.id = ar.appointment_id
+            WHERE ar.resource_id = r.id
+              AND ap.appointment_date = ${reservation.slot_date}::date
+              AND ap.start_time = ${reservation.slot_time}
+              AND ap.status NOT IN ('CANCELLED', 'NO_SHOW')
+          )
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      `;
+      if (!available || available.length === 0) {
+        throw new Error('RESOURCE_UNAVAILABLE');
+      }
+      assignedResourceIds.push(available[0].id);
+    }
+
+    const endTime = calculateEndTime(reservation.slot_time, service.duration_minutes);
+    const year = new Date(reservation.slot_date).getUTCFullYear();
+    const randomNum = Math.floor(100000 + Math.random() * 900000);
+    const appointmentNumber = `APT-${year}-${randomNum}`;
+
+    const appointment = await tx.appointment.create({
+      data: {
+        appointment_number: appointmentNumber,
+        user_id: userId,
+        branch_id: reservation.branch_id,
+        service_id: reservation.service_id,
+        appointment_date: reservation.slot_date,
+        start_time: reservation.slot_time,
+        end_time: endTime,
+        status: 'CONFIRMED',
+        idempotency_key: idempotencyKey
+      },
+      include: {
+        branch: { select: { id: true, name: true, address: true } },
+        service: { select: { id: true, name: true, duration_minutes: true, price: true } }
+      }
+    });
+
+    for (const resourceId of assignedResourceIds) {
+      await tx.appointmentResource.create({
+        data: { appointment_id: appointment.id, resource_id: resourceId }
+      });
+    }
+
+    await tx.reservation.delete({ where: { id: reservationId } });
+
+    await tx.auditLog.create({
+      data: { appointment_id: appointment.id, action: 'APPOINTMENT_CONFIRMED', old_status: null, new_status: 'CONFIRMED' }
+    });
+
+    return { appointment, reservation };
+  });
+
+  const dateStr = result.reservation.slot_date.toISOString().split('T')[0];
+  await invalidateAvailabilityCache(result.reservation.branch_id, result.reservation.service_id, dateStr);
+
+  eventBus.publish('appointment.confirmed', {
+    appointmentId: result.appointment.id,
+    appointmentNumber: result.appointment.appointment_number,
+    userId: result.appointment.user_id,
+    branchId: result.appointment.branch_id,
+    serviceId: result.appointment.service_id
+  });
+
+  return { appointment: result.appointment };
+}
+
 export async function createAppointment(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      res.status(401).json({
-        success: false,
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication required'
-        }
-      });
+      res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
       return;
     }
 
@@ -30,174 +193,51 @@ export async function createAppointment(req: Request, res: Response): Promise<vo
     const idempotencyKey = (req.headers['idempotency-key'] as string) || req.body.idempotencyKey || req.body.idempotency_key;
 
     if (!reservationId) {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'reservationId is required'
-        }
-      });
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'reservationId is required' } });
       return;
     }
 
-    // Check Idempotency-Key
-    if (idempotencyKey) {
-      const existing = await prisma.appointment.findFirst({
-        where: {
-          idempotency_key: idempotencyKey,
-          user_id: userId
-        },
-        include: {
-          branch: { select: { id: true, name: true, address: true } },
-          service: { select: { id: true, name: true, duration_minutes: true, price: true } }
-        }
-      });
-
-      if (existing) {
-        res.status(200).json({
-          success: true,
-          data: existing
+    try {
+      const { appointment } = await confirmReservationForUser(reservationId, userId, { idempotencyKey });
+      res.status(201).json({ success: true, data: appointment });
+    } catch (err: any) {
+      if (err.message === 'NOT_FOUND') {
+        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Reservation not found' } });
+        return;
+      }
+      if (err.message === 'FORBIDDEN') {
+        res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Reservation belongs to another user' } });
+        return;
+      }
+      if (err.message === 'RESERVATION_EXPIRED') {
+        res.status(400).json({ success: false, error: { code: 'RESERVATION_EXPIRED', message: 'Reservation has expired' } });
+        return;
+      }
+      if (err.message === 'RESOURCE_UNAVAILABLE') {
+        res.status(409).json({
+          success: false,
+          error: { code: 'RESOURCE_UNAVAILABLE', message: 'A required resource is unavailable for this slot' }
         });
         return;
       }
-    }
-
-    try {
-      const result = await prisma.$transaction(async (tx) => {
-        // 1. SELECT ... FOR UPDATE on reservation
-        const reservations: any[] = await tx.$queryRaw`
-          SELECT * FROM "reservations"
-          WHERE "id" = ${reservationId}::uuid
-          FOR UPDATE
-        `;
-
-        if (!reservations || reservations.length === 0) {
-          throw new Error('NOT_FOUND');
-        }
-
-        const reservation = reservations[0];
-
-        if (reservation.user_id !== userId) {
-          throw new Error('FORBIDDEN');
-        }
-
-        if (new Date(reservation.expires_at).getTime() <= Date.now()) {
-          throw new Error('RESERVATION_EXPIRED');
-        }
-
-        // 2. Fetch service for duration calculation
-        const service = await tx.service.findUnique({
-          where: { id: reservation.service_id }
-        });
-
-        if (!service) {
-          throw new Error('SERVICE_NOT_FOUND');
-        }
-
-        const endTime = calculateEndTime(reservation.slot_time, service.duration_minutes);
-        const year = new Date(reservation.slot_date).getUTCFullYear();
-        const randomNum = Math.floor(100000 + Math.random() * 900000);
-        const appointmentNumber = `APT-${year}-${randomNum}`;
-
-        // 3. Create appointment
-        const appointment = await tx.appointment.create({
-          data: {
-            appointment_number: appointmentNumber,
-            user_id: userId,
-            branch_id: reservation.branch_id,
-            service_id: reservation.service_id,
-            appointment_date: reservation.slot_date,
-            start_time: reservation.slot_time,
-            end_time: endTime,
-            status: 'CONFIRMED',
-            idempotency_key: idempotencyKey || null
-          },
+      if (err.code === 'P2002' && idempotencyKey) {
+        const existing = await prisma.appointment.findFirst({
+          where: { idempotency_key: idempotencyKey, user_id: userId },
           include: {
             branch: { select: { id: true, name: true, address: true } },
             service: { select: { id: true, name: true, duration_minutes: true, price: true } }
           }
         });
-
-        // 4. Delete reservation
-        await tx.reservation.delete({
-          where: { id: reservationId }
-        });
-
-        // 5. Write audit log
-        await tx.auditLog.create({
-          data: {
-            appointment_id: appointment.id,
-            action: 'APPOINTMENT_CONFIRMED',
-            old_status: null,
-            new_status: 'CONFIRMED'
-          }
-        });
-
-        return { appointment, reservation };
-      });
-
-      // Invalidate availability cache
-      const dateStr = result.reservation.slot_date.toISOString().split('T')[0];
-      await invalidateAvailabilityCache(result.reservation.branch_id, result.reservation.service_id, dateStr);
-
-      // Publish event to event bus
-      eventBus.publish('appointment.confirmed', {
-        appointmentId: result.appointment.id,
-        appointmentNumber: result.appointment.appointment_number,
-        userId: result.appointment.user_id,
-        branchId: result.appointment.branch_id,
-        serviceId: result.appointment.service_id
-      });
-
-      res.status(201).json({
-        success: true,
-        data: result.appointment
-      });
-    } catch (err: any) {
-      if (err.message === 'NOT_FOUND') {
-        res.status(404).json({
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message: 'Reservation not found'
-          }
-        });
-        return;
+        if (existing) {
+          res.status(200).json({ success: true, data: existing });
+          return;
+        }
       }
-
-      if (err.message === 'FORBIDDEN') {
-        res.status(403).json({
-          success: false,
-          error: {
-            code: 'FORBIDDEN',
-            message: 'Reservation belongs to another user'
-          }
-        });
-        return;
-      }
-
-      if (err.message === 'RESERVATION_EXPIRED') {
-        res.status(400).json({
-          success: false,
-          error: {
-            code: 'RESERVATION_EXPIRED',
-            message: 'Reservation has expired'
-          }
-        });
-        return;
-      }
-
       throw err;
     }
   } catch (error) {
     console.error('Error confirming appointment booking:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to confirm appointment'
-      }
-    });
+    res.status(500).json({ success: false, error: { code: 'INTERNAL_SERVER_ERROR', message: 'Failed to confirm appointment' } });
   }
 }
 
@@ -518,7 +558,11 @@ export async function rescheduleAppointment(req: Request, res: Response): Promis
           throw new Error('SERVICE_NOT_FOUND');
         }
 
-        // 2. Check if new slot already has active booking
+        // 2. Serialize concurrent reschedules/bookings onto this exact new slot
+        await tx.$executeRaw`
+          SELECT pg_advisory_xact_lock(hashtext(${targetBranchId} || ${targetServiceId} || ${normalizedNewDateStr} || ${normalizedNewTime}))
+        `;
+
         const existingCount = await tx.appointment.count({
           where: {
             branch_id: targetBranchId,
@@ -529,13 +573,7 @@ export async function rescheduleAppointment(req: Request, res: Response): Promis
           }
         });
 
-        const capacity = service.capacity && service.capacity > 0 ? service.capacity : 1;
-        if (existingCount >= capacity) {
-          throw new Error('SLOT_UNAVAILABLE');
-        }
-
-        // 3. Check active reservation on new slot
-        const activeRes = await tx.reservation.findFirst({
+        const activeResCount = await tx.reservation.count({
           where: {
             branch_id: targetBranchId,
             service_id: targetServiceId,
@@ -545,7 +583,8 @@ export async function rescheduleAppointment(req: Request, res: Response): Promis
           }
         });
 
-        if (activeRes) {
+        const capacity = service.capacity && service.capacity > 0 ? service.capacity : 1;
+        if (existingCount + activeResCount >= capacity) {
           throw new Error('SLOT_UNAVAILABLE');
         }
 

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../../lib/prisma';
+import { confirmReservationForUser } from '../booking/appointments.controller';
 
 export async function joinWaitlist(req: Request, res: Response): Promise<void> {
   try {
@@ -17,7 +18,9 @@ export async function joinWaitlist(req: Request, res: Response): Promise<void> {
 
     const branchId = req.body.branchId || req.body.branch_id;
     const serviceId = req.body.serviceId || req.body.service_id;
-    const requestedDate = req.body.requestedDate || req.body.requested_date || req.body.date;
+    const requestedDate =
+      req.body.requestedDate || req.body.requested_date || req.body.date ||
+      req.body.preferred_date || req.body.preferredDate;
 
     if (!branchId || !serviceId || !requestedDate) {
       res.status(400).json({
@@ -301,5 +304,42 @@ export async function cancelWaitlistEntry(req: Request, res: Response): Promise<
         message: 'Failed to cancel waitlist entry'
       }
     });
+  }
+}
+
+export async function acceptWaitlistOffer(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    const { id } = req.params;
+
+    const entry = await prisma.waitlist.findUnique({ where: { id } });
+    if (!entry) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Waitlist entry not found' } });
+      return;
+    }
+    if (entry.user_id !== userId) {
+      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
+      return;
+    }
+    if (entry.status !== 'OFFERED' || !entry.reservation_id) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_STATE', message: 'This waitlist entry has no active offer' } });
+      return;
+    }
+
+    const { appointment } = await confirmReservationForUser(entry.reservation_id, userId, {});
+    await prisma.waitlist.update({ where: { id }, data: { status: 'CONFIRMED' } });
+
+    res.status(201).json({ success: true, data: appointment });
+  } catch (err: any) {
+    if (err.message === 'RESERVATION_EXPIRED') {
+      res.status(400).json({ success: false, error: { code: 'RESERVATION_EXPIRED', message: 'The offered slot has expired' } });
+      return;
+    }
+    if (err.message === 'NOT_FOUND') {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Reservation not found' } });
+      return;
+    }
+    console.error('Error accepting waitlist offer:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL_SERVER_ERROR', message: 'Failed to accept offer' } });
   }
 }

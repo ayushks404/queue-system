@@ -14,6 +14,7 @@ const router = Router();
 router.post('/walk-in', authenticate, requireRole('STAFF', 'ADMIN'), validate(walkInQueueSchema), createWalkIn);
 router.patch('/:id/status', authenticate, requireRole('STAFF', 'ADMIN'), validate(updateStatusSchema), updateQueueStatus);
 router.post('/:branchId/call-next', authenticate, requireRole('STAFF', 'ADMIN'), callNext);
-router.get('/:branchId', authenticate, getBranchQueue);
+router.get('/:branchId', authenticate, requireRole('STAFF', 'ADMIN'), getBranchQueue);
+router.get('/branch/:branchId', authenticate, requireRole('STAFF', 'ADMIN'), getBranchQueue);
 
 export default router;

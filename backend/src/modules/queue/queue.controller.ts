@@ -14,7 +14,7 @@ export async function createWalkIn(req: Request, res: Response): Promise<void> {
   try {
     const branchId = req.body.branchId || req.body.branch_id;
     const customerName = req.body.customerName || req.body.customer_name || req.body.name;
-    const phone = req.body.phone;
+    const phone = req.body.phone || req.body.customer_phone;
     const priority = (req.body.priority || 'NORMAL').toUpperCase();
     const appointmentId = req.body.appointmentId || req.body.appointment_id || null;
 
@@ -51,6 +51,9 @@ export async function createWalkIn(req: Request, res: Response): Promise<void> {
     todayStart.setUTCHours(0, 0, 0, 0);
 
     const queueEntry = await prisma.$transaction(async (tx) => {
+      // Serialize walk-in number allocation per branch
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${branchId} || ':walkin-queue-number'))`;
+
       const latestToday = await tx.queueEntry.findFirst({
         where: {
           branch_id: branchId,

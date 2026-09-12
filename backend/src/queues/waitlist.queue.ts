@@ -57,6 +57,13 @@ export async function processWaitlistForSlot(
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      const service = await tx.service.findUnique({ where: { id: serviceId } });
+      if (!service) throw new Error('SERVICE_NOT_FOUND');
+
+      await tx.$executeRaw`
+        SELECT pg_advisory_xact_lock(hashtext(${branchId} || ${serviceId} || ${normalizedDateStr} || ${normalizedTime}))
+      `;
+
       // 1. Delete any expired reservations for this slot
       await tx.reservation.deleteMany({
         where: {
@@ -67,6 +74,24 @@ export async function processWaitlistForSlot(
           expires_at: { lte: new Date() }
         }
       });
+
+      const activeAppointments = await tx.appointment.count({
+        where: {
+          branch_id: branchId, service_id: serviceId, appointment_date: targetDate,
+          start_time: normalizedTime, status: { not: 'CANCELLED' }
+        }
+      });
+      const activeReservations = await tx.reservation.count({
+        where: {
+          branch_id: branchId, service_id: serviceId, slot_date: targetDate,
+          slot_time: normalizedTime, expires_at: { gt: new Date() }
+        }
+      });
+      const capacity = service.capacity && service.capacity > 0 ? service.capacity : 1;
+      if (activeAppointments + activeReservations >= capacity) {
+        // No room yet — leave WAITING, a later cancellation/no-show will retry this
+        throw new Error('NO_CAPACITY');
+      }
 
       // 2. Create reservation for this waitlist user
       const reservation = await tx.reservation.create({
@@ -80,10 +105,10 @@ export async function processWaitlistForSlot(
         }
       });
 
-      // 3. Mark waitlist status as OFFERED
+      // 3. Mark waitlist status as OFFERED and link the reservation it was offered
       const updatedEntry = await tx.waitlist.update({
         where: { id: oldestEntry.id },
-        data: { status: 'OFFERED' }
+        data: { status: 'OFFERED', reservation_id: reservation.id }
       });
 
       return { waitlistEntry: updatedEntry, reservation };

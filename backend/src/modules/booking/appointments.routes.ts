@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate, requireRole } from '../auth/auth.middleware';
 import {
   createAppointment,
+  listAppointments,
   getAppointmentById,
   updateAppointmentStatus,
   cancelAppointment,
@@ -18,6 +19,7 @@ import {
 const router = Router();
 
 router.post('/', authenticate, validate(createAppointmentSchema), createAppointment);
+router.get('/', authenticate, listAppointments);
 router.get('/:id', authenticate, getAppointmentById);
 router.patch('/:id/status', authenticate, requireRole('STAFF', 'ADMIN'), validate(updateStatusSchema), updateAppointmentStatus);
 router.patch('/:id/cancel', authenticate, validate(cancelAppointmentSchema), cancelAppointment);

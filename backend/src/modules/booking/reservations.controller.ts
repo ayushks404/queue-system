@@ -72,6 +72,11 @@ export async function createReservation(req: Request, res: Response): Promise<vo
     // Execute reservation creation inside a transaction with lock/conflict check
     try {
       const reservation = await prisma.$transaction(async (tx) => {
+        // 0. Serialize every concurrent attempt on this exact slot
+        await tx.$executeRaw`
+          SELECT pg_advisory_xact_lock(hashtext(${branchId} || ${serviceId} || ${normalizedDateStr} || ${normalizedTime}))
+        `;
+
         // 1. Delete any expired reservations for this slot so expired holds are reclaimed
         await tx.reservation.deleteMany({
           where: {
@@ -83,7 +88,7 @@ export async function createReservation(req: Request, res: Response): Promise<vo
           }
         });
 
-        // 2. Check if active appointment already exists at capacity
+        // 2. Count active appointments AND active reservations together against capacity
         const activeAppointments = await tx.appointment.count({
           where: {
             branch_id: branchId,
@@ -94,13 +99,7 @@ export async function createReservation(req: Request, res: Response): Promise<vo
           }
         });
 
-        const capacity = service.capacity && service.capacity > 0 ? service.capacity : 1;
-        if (activeAppointments >= capacity) {
-          throw new Error('SLOT_UNAVAILABLE');
-        }
-
-        // 3. Check if active unexpired reservation already exists
-        const activeReservation = await tx.reservation.findFirst({
+        const activeReservations = await tx.reservation.count({
           where: {
             branch_id: branchId,
             service_id: serviceId,
@@ -110,11 +109,13 @@ export async function createReservation(req: Request, res: Response): Promise<vo
           }
         });
 
-        if (activeReservation) {
+        const capacity = service.capacity && service.capacity > 0 ? service.capacity : 1;
+        if (activeAppointments + activeReservations >= capacity) {
           throw new Error('SLOT_UNAVAILABLE');
         }
 
-        // 4. Create new reservation
+        // 3. Create new reservation — safe because the advisory lock serializes
+        //    every concurrent request for this exact slot
         return await tx.reservation.create({
           data: {
             user_id: userId,

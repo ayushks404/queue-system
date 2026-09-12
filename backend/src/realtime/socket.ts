@@ -3,7 +3,10 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { eventBus } from '../events/bus';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key_queue_system_2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 
 let ioInstance: SocketIOServer | null = null;
 let subscribersRegistered = false;
@@ -37,7 +40,7 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
         ? authHeader.split(' ')[1]
         : authHeader;
 
-      const decoded = jwt.verify(token, JWT_SECRET) as SocketUser;
+      const decoded = jwt.verify(token, JWT_SECRET!) as unknown as SocketUser;
       socket.data.user = decoded;
       return next();
     } catch (err) {
