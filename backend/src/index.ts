@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import express from 'express';
-import bcrypt from 'bcryptjs';
 import { prisma } from './lib/prisma';
 import authRoutes from './modules/auth/auth.routes';
 import adminUserRoutes from './modules/admin/users.routes';
@@ -65,20 +64,6 @@ app.use('/api/docs', docsRoutes);
 import http from 'http';
 import { initSocketServer } from './realtime/socket';
 
-async function ensureAdminSeeded(): Promise<void> {
-  const email = process.env.ADMIN_EMAIL || 'admin@queue.local';
-  const password = process.env.ADMIN_PASSWORD || 'AdminPassword123!';
-  const password_hash = await bcrypt.hash(password, 10);
-
-  await prisma.user.upsert({
-    where: { email },
-    update: { password_hash, role: 'ADMIN' },
-    create: { email, password_hash, name: 'System Admin', role: 'ADMIN' }
-  });
-
-  console.log(`[Startup] Admin account ready: ${email}`);
-}
-
 async function ensureDefaultBranchHours(): Promise<void> {
   const branches = await prisma.branch.findMany({
     include: { business_hours: true }
@@ -102,7 +87,6 @@ async function ensureDefaultBranchHours(): Promise<void> {
 export async function startServer() {
   await prisma.$connect();
   console.log('Database connected successfully');
-  await ensureAdminSeeded();
   await ensureDefaultBranchHours();
   const server = http.createServer(app);
   initSocketServer(server);
