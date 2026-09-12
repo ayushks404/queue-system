@@ -151,9 +151,9 @@ export const CustomerDashboard: React.FC = () => {
     <div style={{ maxWidth: '980px', margin: '0 auto', padding: '1.5rem 1rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
         <div>
-          <h2>Customer Dashboard</h2>
+          <h2>Patient Portal</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            Manage your upcoming appointments and active waitlists
+            Manage your upcoming consultations and active department waitlists
           </p>
         </div>
       </div>
