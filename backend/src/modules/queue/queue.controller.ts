@@ -85,6 +85,8 @@ export async function createWalkIn(req: Request, res: Response): Promise<void> {
       queueNumber: queueEntry.queue_number
     });
 
+    await notifyQueuePositionsChanged(branchId);
+
     res.status(201).json({
       success: true,
       data: queueEntry
@@ -155,6 +157,10 @@ export async function updateQueueStatus(req: Request, res: Response): Promise<vo
       status: updated.status,
       queueNumber: updated.queue_number
     });
+
+    if (['CANCELLED', 'SKIPPED', 'CALLED', 'COMPLETED'].includes(nextStatus)) {
+      await notifyQueuePositionsChanged(updated.branch_id);
+    }
 
     res.status(200).json({
       success: true,
