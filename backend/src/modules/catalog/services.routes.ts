@@ -9,6 +9,8 @@ import {
 } from './services.controller';
 import { setServiceResources, getServiceResources } from './resources.controller';
 import { authenticate, requireRole } from '../auth/auth.middleware';
+import { validate } from '../../middleware/validate';
+import { createServiceSchema, updateServiceSchema } from '../../middleware/schemas';
 
 const router = Router();
 
@@ -16,10 +18,10 @@ const router = Router();
 router.get('/', getActiveServices);
 
 // Admin Service endpoints
-router.post('/', authenticate, requireRole('ADMIN'), createService);
+router.post('/', authenticate, requireRole('ADMIN'), validate(createServiceSchema), createService);
 router.get('/admin', authenticate, requireRole('ADMIN'), getServicesAdmin);
 router.get('/:id', authenticate, requireRole('ADMIN'), getServiceById);
-router.patch('/:id', authenticate, requireRole('ADMIN'), updateService);
+router.patch('/:id', authenticate, requireRole('ADMIN'), validate(updateServiceSchema), updateService);
 router.delete('/:id', authenticate, requireRole('ADMIN'), deleteService);
 
 // Service resources linking

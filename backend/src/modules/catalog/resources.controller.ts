@@ -45,6 +45,27 @@ export async function createResource(req: Request, res: Response) {
   }
 }
 
+export async function getAllResources(req: Request, res: Response) {
+  try {
+    const resources = await prisma.resource.findMany({
+      include: {
+        branch: { select: { id: true, name: true } }
+      },
+      orderBy: { name: 'asc' }
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: resources
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: error.message || 'Internal server error' }
+    });
+  }
+}
+
 export async function getResourcesByBranch(req: Request, res: Response) {
   try {
     const { branchId } = req.params;

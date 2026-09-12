@@ -28,7 +28,7 @@ export async function getActiveServices(req: Request, res: Response) {
 
 export async function createService(req: Request, res: Response) {
   try {
-    const { name, duration_minutes, price, capacity, is_active } = req.body;
+    const { name, description, duration_minutes, price, capacity, buffer_time_minutes, is_active } = req.body;
     if (!name || duration_minutes === undefined || price === undefined) {
       return res.status(400).json({
         success: false,
@@ -42,9 +42,11 @@ export async function createService(req: Request, res: Response) {
     const service = await prisma.service.create({
       data: {
         name,
+        description: description || null,
         duration_minutes: Number(duration_minutes),
         price: Number(price),
         capacity: capacity !== undefined ? Number(capacity) : 1,
+        buffer_time_minutes: buffer_time_minutes !== undefined ? Number(buffer_time_minutes) : 0,
         is_active: is_active !== undefined ? Boolean(is_active) : true
       }
     });
@@ -126,7 +128,7 @@ export async function getServiceById(req: Request, res: Response) {
 export async function updateService(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { name, duration_minutes, price, capacity, is_active } = req.body;
+    const { name, description, duration_minutes, price, capacity, buffer_time_minutes, is_active } = req.body;
 
     const existing = await prisma.service.findUnique({ where: { id } });
     if (!existing) {
@@ -143,9 +145,11 @@ export async function updateService(req: Request, res: Response) {
       where: { id },
       data: {
         ...(name !== undefined && { name }),
+        ...(description !== undefined && { description }),
         ...(duration_minutes !== undefined && { duration_minutes: Number(duration_minutes) }),
         ...(price !== undefined && { price: Number(price) }),
         ...(capacity !== undefined && { capacity: Number(capacity) }),
+        ...(buffer_time_minutes !== undefined && { buffer_time_minutes: Number(buffer_time_minutes) }),
         ...(is_active !== undefined && { is_active: Boolean(is_active) })
       }
     });
@@ -186,12 +190,18 @@ export async function deleteService(req: Request, res: Response) {
       data: { message: 'Service deleted successfully' }
     });
   } catch (error: any) {
+    if (error.code === 'P2003') {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: 'CONFLICT',
+          message: 'This service has existing appointments and cannot be deleted. Deactivate it instead.'
+        }
+      });
+    }
     return res.status(500).json({
       success: false,
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: error.message || 'Internal server error'
-      }
+      error: { code: 'INTERNAL_ERROR', message: error.message || 'Internal server error' }
     });
   }
 }

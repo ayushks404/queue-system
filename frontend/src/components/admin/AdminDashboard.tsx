@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   XCircle,
   RefreshCw,
+  Users,
 } from 'lucide-react';
 
 interface ReportSummary {
@@ -31,10 +32,11 @@ interface ReportSummary {
 }
 
 export const AdminDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'branches' | 'services' | 'resources' | 'schedules'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'branches' | 'services' | 'resources' | 'schedules' | 'users'>('analytics');
   const [branches, setBranches] = useState<Branch[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
+  const [users, setUsers] = useState<{ id: string; name: string; email: string; role: string }[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Reports state
@@ -47,7 +49,7 @@ export const AdminDashboard: React.FC = () => {
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [branchName, setBranchName] = useState<string>('');
   const [branchAddress, setBranchAddress] = useState<string>('');
-  const [branchTimezone, setBranchTimezone] = useState<string>('UTC');
+  const [branchPhone, setBranchPhone] = useState<string>('');
 
   // Service Modal state
   const [showServiceModal, setShowServiceModal] = useState<boolean>(false);
@@ -66,23 +68,37 @@ export const AdminDashboard: React.FC = () => {
   const [resourceBranchId, setResourceBranchId] = useState<string>('');
 
   // Schedules state
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const [selectedScheduleBranchId, setSelectedScheduleBranchId] = useState<string>('');
   const [holidayDate, setHolidayDate] = useState<string>('');
   const [holidayReason, setHolidayReason] = useState<string>('');
+  const [businessHours, setBusinessHoursState] = useState(
+    DAYS.map((_, i) => ({ day_of_week: i, open_time: '09:00', close_time: '17:00', break_start: '', break_end: '' }))
+  );
+  const [hoursLoading, setHoursLoading] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [branchesData, servicesData, resourcesData] = await Promise.all([
-        api.get<{ branches: Branch[] }>('/branches'),
-        api.get<{ services: Service[] }>('/services'),
-        api.get<{ resources: Resource[] }>('/resources'),
+      const [branchesRes, servicesRes, resourcesRes] = await Promise.all([
+        api.get<any>('/branches/admin').catch(() => api.get<any>('/branches')).catch(() => ({ data: [] })),
+        api.get<any>('/services/admin').catch(() => api.get<any>('/services')).catch(() => ({ data: [] })),
+        api.get<any>('/resources').catch(() => ({ data: [] })),
       ]);
 
-      const bList = branchesData.branches || [];
+      const bList = Array.isArray(branchesRes)
+        ? branchesRes
+        : (branchesRes?.data || branchesRes?.branches || []);
+      const sList = Array.isArray(servicesRes)
+        ? servicesRes
+        : (servicesRes?.data || servicesRes?.services || []);
+      const rList = Array.isArray(resourcesRes)
+        ? resourcesRes
+        : (resourcesRes?.data || resourcesRes?.resources || []);
+
       setBranches(bList);
-      setServices(servicesData.services || []);
-      setResources(resourcesData.resources || []);
+      setServices(sList);
+      setResources(rList);
       if (bList.length > 0 && !selectedScheduleBranchId) {
         setSelectedScheduleBranchId(bList[0].id);
       }
@@ -92,6 +108,15 @@ export const AdminDashboard: React.FC = () => {
       setLoading(false);
     }
   }, [selectedScheduleBranchId]);
+
+  const loadUsers = useCallback(async () => {
+    try {
+      const data = await api.get<any>('/admin/users');
+      setUsers(data.data || data.items || []);
+    } catch (err) {
+      console.error('Failed to load users:', err);
+    }
+  }, []);
 
   const loadReports = useCallback(async () => {
     try {
@@ -113,8 +138,63 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'analytics') {
       loadReports();
+    } else if (activeTab === 'users') {
+      loadUsers();
     }
-  }, [activeTab, loadReports]);
+  }, [activeTab, loadReports, loadUsers]);
+
+  useEffect(() => {
+    if (!selectedScheduleBranchId) return;
+    (async () => {
+      try {
+        const data = await api.get<any>(`/branches/${selectedScheduleBranchId}/business-hours`);
+        const existing = data.data || data.business_hours || [];
+        if (Array.isArray(existing) && existing.length > 0) {
+          setBusinessHoursState(
+            DAYS.map((_, i) => {
+              const found = existing.find((h: any) => h.day_of_week === i);
+              return found
+                ? { day_of_week: i, open_time: found.open_time, close_time: found.close_time,
+                    break_start: found.break_start || '', break_end: found.break_end || '' }
+                : { day_of_week: i, open_time: '09:00', close_time: '17:00', break_start: '', break_end: '' };
+            })
+          );
+        }
+      } catch (err) {
+        console.error('Failed to load business hours:', err);
+      }
+    })();
+  }, [selectedScheduleBranchId]);
+
+  const handleChangeUserRole = async (userId: string, newRole: string) => {
+    try {
+      await api.patch(`/admin/users/${userId}/role`, { role: newRole });
+      await loadUsers();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update role');
+    }
+  };
+
+  const handleSaveBusinessHours = async () => {
+    if (!selectedScheduleBranchId) return;
+    setHoursLoading(true);
+    try {
+      await api.post(`/branches/${selectedScheduleBranchId}/business-hours`, {
+        hours: businessHours.map((h) => ({
+          day_of_week: h.day_of_week,
+          open_time: h.open_time,
+          close_time: h.close_time,
+          break_start: h.break_start || null,
+          break_end: h.break_end || null,
+        })),
+      });
+      alert('Business hours saved.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to save business hours');
+    } finally {
+      setHoursLoading(false);
+    }
+  };
 
   // Branch CRUD handlers
   const handleSaveBranch = async (e: React.FormEvent) => {
@@ -124,13 +204,13 @@ export const AdminDashboard: React.FC = () => {
         await api.patch(`/branches/${editingBranch.id}`, {
           name: branchName,
           address: branchAddress,
-          timezone: branchTimezone,
+          phone: branchPhone,
         });
       } else {
         await api.post('/branches', {
           name: branchName,
           address: branchAddress,
-          timezone: branchTimezone,
+          phone: branchPhone,
         });
       }
       setShowBranchModal(false);
@@ -270,6 +350,12 @@ export const AdminDashboard: React.FC = () => {
           onClick={() => setActiveTab('schedules')}
         >
           <Calendar size={15} /> Schedules & Holidays
+        </button>
+        <button
+          className={`btn btn-sm ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('users')}
+        >
+          <Users size={15} /> Users ({users.length})
         </button>
       </div>
 
@@ -415,7 +501,7 @@ export const AdminDashboard: React.FC = () => {
                     setEditingBranch(null);
                     setBranchName('');
                     setBranchAddress('');
-                    setBranchTimezone('UTC');
+                    setBranchPhone('');
                     setShowBranchModal(true);
                   }}
                 >
@@ -442,14 +528,14 @@ export const AdminDashboard: React.FC = () => {
                     </p>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-faint)' }}>
-                      <span>TZ: {b.timezone}</span>
+                      <span>Phone: {b.phone || 'N/A'}</span>
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={() => {
                           setEditingBranch(b);
                           setBranchName(b.name);
                           setBranchAddress(b.address || '');
-                          setBranchTimezone(b.timezone);
+                          setBranchPhone(b.phone || '');
                           setShowBranchModal(true);
                         }}
                       >
@@ -581,6 +667,29 @@ export const AdminDashboard: React.FC = () => {
                   </select>
                 </div>
 
+                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem', marginBottom: '1rem' }}>
+                  <h4 style={{ marginBottom: '0.75rem', fontSize: '1rem' }}>Weekly Business Hours</h4>
+                  {businessHours.map((h, idx) => (
+                    <div key={h.day_of_week} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                      <span style={{ width: '90px', fontSize: '0.85rem' }}>{DAYS[h.day_of_week]}</span>
+                      <input type="time" className="form-input" value={h.open_time}
+                        onChange={(e) => { const next = [...businessHours]; next[idx] = { ...next[idx], open_time: e.target.value }; setBusinessHoursState(next); }} />
+                      <span>to</span>
+                      <input type="time" className="form-input" value={h.close_time}
+                        onChange={(e) => { const next = [...businessHours]; next[idx] = { ...next[idx], close_time: e.target.value }; setBusinessHoursState(next); }} />
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-faint)' }}>Break (optional):</span>
+                      <input type="time" className="form-input" value={h.break_start}
+                        onChange={(e) => { const next = [...businessHours]; next[idx] = { ...next[idx], break_start: e.target.value }; setBusinessHoursState(next); }} />
+                      <span>to</span>
+                      <input type="time" className="form-input" value={h.break_end}
+                        onChange={(e) => { const next = [...businessHours]; next[idx] = { ...next[idx], break_end: e.target.value }; setBusinessHoursState(next); }} />
+                    </div>
+                  ))}
+                  <button type="button" className="btn btn-primary" onClick={handleSaveBusinessHours} disabled={hoursLoading} style={{ marginTop: '0.5rem' }}>
+                    {hoursLoading ? 'Saving…' : 'Save Business Hours'}
+                  </button>
+                </div>
+
                 <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem' }}>
                   <h4 style={{ marginBottom: '0.75rem', fontSize: '1rem' }}>Declare Branch Holiday</h4>
                   <form onSubmit={handleAddHoliday} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end' }}>
@@ -613,6 +722,41 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* USERS TAB */}
+          {activeTab === 'users' && (
+            <div className="glass-card">
+              <h3 style={{ marginBottom: '1rem' }}>All Users</h3>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '0.5rem' }}>Name</th>
+                    <th style={{ textAlign: 'left', padding: '0.5rem' }}>Email</th>
+                    <th style={{ textAlign: 'left', padding: '0.5rem' }}>Role</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id}>
+                      <td style={{ padding: '0.5rem' }}>{u.name}</td>
+                      <td style={{ padding: '0.5rem' }}>{u.email}</td>
+                      <td style={{ padding: '0.5rem' }}>
+                        <select
+                          className="form-select"
+                          value={u.role}
+                          onChange={(e) => handleChangeUserRole(u.id, e.target.value)}
+                        >
+                          <option value="CUSTOMER">CUSTOMER</option>
+                          <option value="STAFF">STAFF</option>
+                          <option value="ADMIN">ADMIN</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
 
@@ -640,6 +784,7 @@ export const AdminDashboard: React.FC = () => {
                 <label className="form-label">Address</label>
                 <input
                   type="text"
+                  required
                   className="form-input"
                   placeholder="e.g. 100 Main St, Suite 400"
                   value={branchAddress}
@@ -648,13 +793,14 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Timezone</label>
+                <label className="form-label">Phone</label>
                 <input
                   type="text"
+                  required
                   className="form-input"
-                  placeholder="UTC"
-                  value={branchTimezone}
-                  onChange={(e) => setBranchTimezone(e.target.value)}
+                  placeholder="e.g. +1 555 0100"
+                  value={branchPhone}
+                  onChange={(e) => setBranchPhone(e.target.value)}
                 />
               </div>
 
