@@ -131,12 +131,56 @@ export async function getAvailability(req: Request, res: Response): Promise<void
       ...activeReservations.map((r) => ({ start_time: r.slot_time }))
     ];
 
+    // Resource level checks
+    const requiredServiceResources = await prisma.serviceResource.findMany({
+      where: { service_id: serviceId }
+    });
+    const requiredTypes = [...new Set(requiredServiceResources.map((r) => r.resource_type))];
+
+    const activeBranchResources = await prisma.resource.findMany({
+      where: { branch_id: branchId, is_active: true }
+    });
+
+    const totalResourcesByType: Record<string, number> = {};
+    for (const r of activeBranchResources) {
+      totalResourcesByType[r.type] = (totalResourcesByType[r.type] || 0) + 1;
+    }
+
+    const bookedAppointmentResources = await prisma.appointmentResource.findMany({
+      where: {
+        appointment: {
+          branch_id: branchId,
+          appointment_date: targetDate,
+          status: { notIn: ['CANCELLED', 'NO_SHOW'] }
+        }
+      },
+      include: {
+        appointment: { select: { start_time: true } },
+        resource: { select: { type: true } }
+      }
+    });
+
+    const bookedResourcesBySlotAndType: Record<string, Record<string, number>> = {};
+    for (const ar of bookedAppointmentResources) {
+      const slot = ar.appointment.start_time.slice(0, 5);
+      const type = ar.resource.type;
+      if (!bookedResourcesBySlotAndType[slot]) {
+        bookedResourcesBySlotAndType[slot] = {};
+      }
+      bookedResourcesBySlotAndType[slot][type] = (bookedResourcesBySlotAndType[slot][type] || 0) + 1;
+    }
+
     const availableSlots = computeAvailableSlots(
       branch,
       service,
       normalizedDate,
       existingSlots,
-      branch.holidays
+      branch.holidays,
+      {
+        requiredResourceTypes: requiredTypes,
+        totalResourcesByType,
+        bookedResourcesBySlotAndType
+      }
     );
 
     const responseData = {

@@ -60,12 +60,19 @@ function getDayOfWeek(date: string | Date): number {
   return date.getUTCDay();
 }
 
+export interface ResourceAvailabilityInput {
+  requiredResourceTypes?: string[];
+  totalResourcesByType?: Record<string, number>;
+  bookedResourcesBySlotAndType?: Record<string, Record<string, number>>;
+}
+
 export function computeAvailableSlots(
   branch: BranchAvailabilityInput,
   service: ServiceAvailabilityInput,
   date: string | Date,
   existingAppointments: AppointmentSlotInput[] = [],
-  holidays: Array<HolidayInput | string | Date> = []
+  holidays: Array<HolidayInput | string | Date> = [],
+  resourceAvailability?: ResourceAvailabilityInput
 ): string[] {
   const targetDateStr = normalizeDateStr(date);
 
@@ -138,6 +145,22 @@ export function computeAvailableSlots(
     const bookedCount = slotCounts[slotTimeStr] || 0;
 
     if (bookedCount < capacity) {
+      // Check required resource types if specified
+      if (resourceAvailability?.requiredResourceTypes && resourceAvailability.requiredResourceTypes.length > 0) {
+        let hasRequiredResources = true;
+        for (const type of resourceAvailability.requiredResourceTypes) {
+          const totalOfType = resourceAvailability.totalResourcesByType?.[type] ?? 0;
+          const bookedOfType = resourceAvailability.bookedResourcesBySlotAndType?.[slotTimeStr]?.[type] ?? 0;
+          if (totalOfType <= 0 || bookedOfType >= totalOfType) {
+            hasRequiredResources = false;
+            break;
+          }
+        }
+        if (!hasRequiredResources) {
+          continue;
+        }
+      }
+
       availableSlots.push(slotTimeStr);
     }
   }

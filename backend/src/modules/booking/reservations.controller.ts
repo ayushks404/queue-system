@@ -3,6 +3,14 @@ import { prisma } from '../../lib/prisma';
 import { invalidateAvailabilityCache } from './availability.controller';
 import { getReservationExpiryQueue } from '../../queues/reservationExpiry.queue';
 
+/**
+ * Concurrency Model Note:
+ * Any write path modifying `reservations` or `appointments` for a given branch/service/date/time
+ * MUST acquire `pg_advisory_xact_lock(hashtext(branch_id || service_id || dateStr || slotTime))`
+ * within a transaction before capacity counting and insertion.
+ * Because multi-capacity services (capacity > 1) are supported, there is no single-row DB UNIQUE constraint
+ * on (branch, service, date, time); transactional advisory locking provides strict serialization.
+ */
 export async function createReservation(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user?.id;

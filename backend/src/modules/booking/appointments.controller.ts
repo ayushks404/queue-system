@@ -70,6 +70,12 @@ export async function listAppointments(req: Request, res: Response): Promise<voi
   }
 }
 
+/**
+ * Concurrency Model Note:
+ * Writes confirming reservations and creating appointments execute inside a transaction
+ * with SELECT ... FOR UPDATE row locks on the Reservation, followed by FOR UPDATE SKIP LOCKED
+ * resource allocation queries. Reschedules acquire pg_advisory_xact_lock on the target slot.
+ */
 export async function confirmReservationForUser(
   reservationId: string,
   userId: string,
@@ -588,6 +594,37 @@ export async function rescheduleAppointment(req: Request, res: Response): Promis
           throw new Error('SLOT_UNAVAILABLE');
         }
 
+        // 3. Check and lock required resources for the new slot
+        const requiredResourceTypes = await tx.serviceResource.findMany({
+          where: { service_id: targetServiceId }
+        });
+        const uniqueTypes = [...new Set(requiredResourceTypes.map((rt) => rt.resource_type))];
+        const assignedResourceIds: string[] = [];
+
+        for (const type of uniqueTypes) {
+          const available: any[] = await tx.$queryRaw`
+            SELECT r.id FROM "resources" r
+            WHERE r.branch_id = ${targetBranchId}::uuid
+              AND r.type = ${type}
+              AND r.is_active = true
+              AND NOT EXISTS (
+                SELECT 1 FROM "appointment_resources" ar
+                JOIN "appointments" ap ON ap.id = ar.appointment_id
+                WHERE ar.resource_id = r.id
+                  AND ap.id != ${id}::uuid
+                  AND ap.appointment_date = ${targetNewDate}::date
+                  AND ap.start_time = ${normalizedNewTime}
+                  AND ap.status NOT IN ('CANCELLED', 'NO_SHOW')
+              )
+            LIMIT 1
+            FOR UPDATE SKIP LOCKED
+          `;
+          if (!available || available.length === 0) {
+            throw new Error('RESOURCE_UNAVAILABLE');
+          }
+          assignedResourceIds.push(available[0].id);
+        }
+
         const newEndTime = calculateEndTime(normalizedNewTime, service.duration_minutes);
 
         // 4. Update appointment to new slot
@@ -602,7 +639,18 @@ export async function rescheduleAppointment(req: Request, res: Response): Promis
           }
         });
 
-        // 5. Write audit log
+        // 5. Reassign appointment resources
+        await tx.appointmentResource.deleteMany({
+          where: { appointment_id: id }
+        });
+
+        for (const resourceId of assignedResourceIds) {
+          await tx.appointmentResource.create({
+            data: { appointment_id: id, resource_id: resourceId }
+          });
+        }
+
+        // 6. Write audit log
         await tx.auditLog.create({
           data: {
             appointment_id: id,
@@ -640,6 +688,16 @@ export async function rescheduleAppointment(req: Request, res: Response): Promis
           error: {
             code: 'SLOT_UNAVAILABLE',
             message: 'The requested new slot is already booked or reserved'
+          }
+        });
+        return;
+      }
+      if (err.message === 'RESOURCE_UNAVAILABLE') {
+        res.status(409).json({
+          success: false,
+          error: {
+            code: 'RESOURCE_UNAVAILABLE',
+            message: 'Required resources are not available for the requested slot'
           }
         });
         return;
