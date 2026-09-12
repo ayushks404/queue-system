@@ -300,7 +300,7 @@ export const StaffDashboard: React.FC = () => {
               <Users size={18} color="var(--accent-primary)" /> Live Queue Tickets
             </h3>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Auto-syncs via Socket.IO
+              {queueEntries.length} Total
             </span>
           </div>
 
