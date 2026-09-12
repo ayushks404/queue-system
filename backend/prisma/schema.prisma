@@ -159,6 +159,7 @@ model Waitlist {
   branch_id      String   @db.Uuid
   service_id     String   @db.Uuid
   requested_date DateTime @db.Date
+  requested_time String?
   position       Int      @default(1)
   status         String   @default("WAITING")
   reservation_id String?  @db.Uuid

@@ -172,6 +172,45 @@ export async function updateQueueStatus(req: Request, res: Response): Promise<vo
   }
 }
 
+async function notifyQueuePositionsChanged(branchId: string): Promise<void> {
+  try {
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+
+    const waitingEntries = await prisma.queueEntry.findMany({
+      where: {
+        branch_id: branchId,
+        created_at: { gte: todayStart },
+        status: 'WAITING'
+      },
+      include: {
+        appointment: {
+          select: { user_id: true }
+        }
+      },
+      orderBy: [
+        { priority_rank: 'desc' },
+        { created_at: 'asc' }
+      ]
+    });
+
+    waitingEntries.forEach((entry, index) => {
+      const position = index + 1;
+      const userId = entry.appointment?.user_id;
+      if (userId) {
+        eventBus.publish('queue.position_changed', {
+          userId,
+          queueEntryId: entry.id,
+          position,
+          queueNumber: entry.queue_number
+        });
+      }
+    });
+  } catch (err) {
+    console.error('Error broadcasting queue position changes:', err);
+  }
+}
+
 export async function callNext(req: Request, res: Response): Promise<void> {
   try {
     const { branchId } = req.params;
@@ -207,7 +246,10 @@ export async function callNext(req: Request, res: Response): Promise<void> {
       // Update status to CALLED
       const updated = await tx.queueEntry.update({
         where: { id: nextEntry.id },
-        data: { status: 'CALLED' }
+        data: { status: 'CALLED' },
+        include: {
+          appointment: { select: { user_id: true } }
+        }
       });
 
       return updated;
@@ -226,7 +268,8 @@ export async function callNext(req: Request, res: Response): Promise<void> {
       branchId,
       queueEntryId: calledEntry.id,
       queueNumber: calledEntry.queue_number,
-      customerName: calledEntry.customer_name
+      customerName: calledEntry.customer_name,
+      userId: calledEntry.appointment?.user_id
     });
 
     eventBus.publish('queue.updated', {
@@ -235,6 +278,8 @@ export async function callNext(req: Request, res: Response): Promise<void> {
       status: 'CALLED',
       queueNumber: calledEntry.queue_number
     });
+
+    await notifyQueuePositionsChanged(branchId);
 
     res.status(200).json({
       success: true,

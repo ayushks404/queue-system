@@ -115,4 +115,12 @@ export const createWaitlistSchema = z.object({
   serviceId: z.string().uuid().optional(),
   preferred_date: z.string().optional(),
   preferredDate: z.string().optional(),
+  requested_date: z.string().optional(),
+  requestedDate: z.string().optional(),
+  date: z.string().optional(),
+  requested_time: z.string().optional(),
+  requestedTime: z.string().optional(),
+  preferred_time: z.string().optional(),
+  preferredTime: z.string().optional(),
+  time: z.string().optional(),
 });

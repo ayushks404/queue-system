@@ -91,6 +91,10 @@ export async function joinWaitlist(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    const requestedTime =
+      req.body.requestedTime || req.body.requested_time || req.body.preferredTime ||
+      req.body.preferred_time || req.body.time;
+
     const currentCount = await prisma.waitlist.count({
       where: {
         branch_id: branchId,
@@ -106,12 +110,13 @@ export async function joinWaitlist(req: Request, res: Response): Promise<void> {
         branch_id: branchId,
         service_id: serviceId,
         requested_date: targetDate,
+        requested_time: requestedTime ? requestedTime.slice(0, 5) : null,
         position: currentCount + 1,
         status: 'WAITING'
       },
       include: {
         branch: { select: { id: true, name: true } },
-        service: { select: { id: true, name: true } }
+        service: { select: { id: true, name: true, duration_minutes: true } }
       }
     });
 
@@ -141,7 +146,7 @@ export async function getWaitlistPosition(req: Request, res: Response): Promise<
       where: { id },
       include: {
         branch: { select: { id: true, name: true } },
-        service: { select: { id: true, name: true } }
+        service: { select: { id: true, name: true, duration_minutes: true } }
       }
     });
 
@@ -174,6 +179,7 @@ export async function getWaitlistPosition(req: Request, res: Response): Promise<
           id: entry.id,
           status: entry.status,
           position: 0,
+          estimated_wait_minutes: 0,
           created_at: entry.created_at
         }
       });
@@ -191,6 +197,9 @@ export async function getWaitlistPosition(req: Request, res: Response): Promise<
       }
     });
 
+    const duration = entry.service?.duration_minutes || 30;
+    const estimated_wait_minutes = position * duration;
+
     res.status(200).json({
       success: true,
       data: {
@@ -198,8 +207,10 @@ export async function getWaitlistPosition(req: Request, res: Response): Promise<
         branch_id: entry.branch_id,
         service_id: entry.service_id,
         requested_date: entry.requested_date,
+        requested_time: entry.requested_time,
         status: entry.status,
         position,
+        estimated_wait_minutes,
         created_at: entry.created_at
       }
     });
