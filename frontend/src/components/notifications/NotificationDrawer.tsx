@@ -115,7 +115,7 @@ export const NotificationDrawer: React.FC = () => {
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.2rem' }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: notif.is_read ? 500 : 700, color: 'var(--text-main)' }}>
-                          {notif.title}
+                          {notif.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
                         </div>
                         <span style={{ fontSize: '0.7rem', color: 'var(--text-faint)' }}>
                           {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

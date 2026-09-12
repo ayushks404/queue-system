@@ -221,7 +221,7 @@ export const StaffDashboard: React.FC = () => {
         branch_id: selectedBranchId,
         service_id: walkInServiceId || undefined,
         customer_name: walkInName,
-        customer_phone: walkInPhone || undefined,
+        phone: walkInPhone || undefined,
         priority: walkInPriority,
       });
       setShowWalkInModal(false);
@@ -501,7 +501,7 @@ export const StaffDashboard: React.FC = () => {
                     <div>
                       <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{ticket.customer_name}</div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {ticket.service?.name || 'Walk-in Service'} {ticket.customer_phone ? `· ${ticket.customer_phone}` : ''}
+                        {ticket.service?.name || 'Walk-in Service'} {ticket.phone ? `· ${ticket.phone}` : ''}
                       </div>
                     </div>
 
@@ -739,10 +739,10 @@ export const StaffDashboard: React.FC = () => {
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Customer</span>
                 <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{ticketToRemove.customer_name}</span>
               </div>
-              {ticketToRemove.customer_phone && (
+              {ticketToRemove.phone && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Phone</span>
-                  <span style={{ fontSize: '0.85rem' }}>{ticketToRemove.customer_phone}</span>
+                  <span style={{ fontSize: '0.85rem' }}>{ticketToRemove.phone}</span>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

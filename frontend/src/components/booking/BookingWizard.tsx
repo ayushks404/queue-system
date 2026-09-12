@@ -290,9 +290,6 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ onSuccessNavigate,
                   </div>
                   <h3 style={{ fontSize: '1.1rem', marginBottom: '0.35rem' }}>{b.name}</h3>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{b.address || 'Central Location'}</p>
-                  <div style={{ marginTop: '0.85rem', fontSize: '0.75rem', color: 'var(--text-faint)' }}>
-                    Timezone: {b.timezone}
-                  </div>
                 </div>
               ))}
             </div>

@@ -44,11 +44,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
     setIsLoading(true);
     try {
-      const data = await api.get<{ notifications: Notification[]; pagination: { unread_count: number } }>(
+      const data = await api.get<{ notifications: Notification[]; pagination: { unreadCount: number; unread_count?: number } }>(
         '/notifications?limit=30'
       );
       setNotifications(data.notifications || []);
-      setUnreadCount(data.pagination?.unread_count ?? (data.notifications || []).filter((n) => !n.is_read).length);
+      setUnreadCount(data.pagination?.unreadCount ?? data.pagination?.unread_count ?? (data.notifications || []).filter((n) => !n.is_read).length);
     } catch (err) {
       console.warn('Failed to fetch notifications:', err);
     } finally {
@@ -78,9 +78,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const handleNewNotification = (notif: Notification) => {
       setNotifications((prev) => [notif, ...prev]);
       setUnreadCount((prev) => prev + 1);
+      const formattedTitle = notif.type
+        ? notif.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+        : 'New Notification';
       addToast({
         type: 'info',
-        title: notif.title || 'New Notification',
+        title: formattedTitle,
         message: notif.message,
       });
     };

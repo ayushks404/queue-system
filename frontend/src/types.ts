@@ -14,7 +14,6 @@ export interface Branch {
   name: string;
   address?: string;
   phone?: string;
-  timezone?: string;
   is_active: boolean;
   created_at: string;
   business_hours?: BusinessHour[];
@@ -118,7 +117,7 @@ export interface QueueEntry {
   branch_id: string;
   service_id?: string;
   customer_name: string;
-  customer_phone?: string;
+  phone?: string;
   queue_number: number;
   priority: QueuePriority;
   status: QueueStatus;
@@ -129,19 +128,21 @@ export interface QueueEntry {
   service?: Service;
 }
 
-export type WaitlistStatus = 'WAITING' | 'OFFERED' | 'CONVERTED' | 'EXPIRED' | 'CANCELLED';
+export type WaitlistStatus = 'WAITING' | 'OFFERED' | 'CONFIRMED' | 'CONVERTED' | 'EXPIRED' | 'CANCELLED';
 
 export interface WaitlistEntry {
   id: string;
   user_id: string;
   branch_id: string;
   service_id: string;
-  preferred_date: string;
+  requested_date: string;
+  requested_time?: string;
   status: WaitlistStatus;
   offered_at?: string;
   offer_expires_at?: string;
   created_at: string;
   position?: number;
+  estimated_wait_minutes?: number;
   branch?: Branch;
   service?: Service;
 }
@@ -150,7 +151,6 @@ export interface Notification {
   id: string;
   user_id: string;
   type: string;
-  title: string;
   message: string;
   metadata?: Record<string, any>;
   is_read: boolean;
