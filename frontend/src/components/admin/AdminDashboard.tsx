@@ -122,8 +122,8 @@ export const AdminDashboard: React.FC = () => {
     try {
       setReportsLoading(true);
       const query = reportBranchId ? `?branchId=${reportBranchId}` : '';
-      const data = await api.get<{ summary: ReportSummary }>(`/reports/summary${query}`);
-      setReportSummary(data.summary);
+      const data = await api.get<{ data?: ReportSummary; summary?: ReportSummary }>(`/reports/summary${query}`);
+      setReportSummary(data.data || data.summary || (data as any));
     } catch (err) {
       console.error('Failed to load reports summary:', err);
     } finally {

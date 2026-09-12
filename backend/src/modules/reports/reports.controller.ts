@@ -109,9 +109,19 @@ export async function getReportsSummary(req: Request, res: Response): Promise<vo
       resource_utilization: resourceUtilization || [],
     };
 
-    res.status(200).json({ summary });
+    res.status(200).json({
+      success: true,
+      data: summary,
+      summary
+    });
   } catch (error) {
     console.error('Error fetching reports summary:', error);
-    res.status(500).json({ error: 'Failed to generate report summary' });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Failed to generate report summary'
+      }
+    });
   }
 }
