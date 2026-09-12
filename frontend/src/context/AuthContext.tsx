@@ -7,7 +7,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<User>;
-  register: (data: { email: string; password: string; name?: string; phone?: string; role?: string }) => Promise<User>;
+  register: (data: { email: string; password: string; name?: string; phone?: string }) => Promise<User>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -15,7 +15,17 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        return JSON.parse(savedUser);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
   const [token, setToken] = useState<string | null>(localStorage.getItem('accessToken'));
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -27,11 +37,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     try {
-      const data = await api.get<{ user: User }>('/auth/me');
-      setUser(data.user);
+      const data = await api.get<any>('/auth/me');
+      const currentUser = data?.user || data?.data?.user || data?.data || (data?.id && data?.role ? data : null);
+      if (currentUser && currentUser.id) {
+        setUser(currentUser);
+        localStorage.setItem('user', JSON.stringify(currentUser));
+      } else {
+        throw new Error('User not found in response');
+      }
     } catch {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
       setToken(null);
       setUser(null);
     } finally {
@@ -46,26 +63,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string): Promise<User> => {
     setIsLoading(true);
     try {
-      const data = await api.post<{ access_token: string; refresh_token?: string; user: User }>('/auth/login', {
+      const data = await api.post<any>('/auth/login', {
         email,
         password,
       });
-      localStorage.setItem('accessToken', data.access_token);
-      if (data.refresh_token) {
-        localStorage.setItem('refreshToken', data.refresh_token);
+      const loggedInUser = data.user || data.data?.user || (data.data?.id ? data.data : null);
+      const accessToken = data.access_token || data.accessToken || data.data?.accessToken;
+      const refreshToken = data.refresh_token || data.refreshToken || data.data?.refreshToken;
+
+      if (accessToken) {
+        localStorage.setItem('accessToken', accessToken);
+        setToken(accessToken);
       }
-      setToken(data.access_token);
-      setUser(data.user);
-      return data.user;
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
+      }
+      if (loggedInUser) {
+        localStorage.setItem('user', JSON.stringify(loggedInUser));
+        setUser(loggedInUser);
+      }
+      return loggedInUser;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const register = async (formData: { email: string; password: string; name?: string; phone?: string; role?: string }): Promise<User> => {
+  const register = async (formData: { email: string; password: string; name?: string; phone?: string }): Promise<User> => {
     setIsLoading(true);
     try {
-      await api.post<{ user: User }>('/auth/register', formData);
+      await api.post<any>('/auth/register', formData);
       // Auto login after register
       return await login(formData.email, formData.password);
     } finally {
@@ -77,11 +103,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
-        await api.post('/auth/logout', { refresh_token: refreshToken }).catch(() => {});
+        await api.post('/auth/logout', { refresh_token: refreshToken, refreshToken }).catch(() => {});
       }
     } finally {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('activeTab');
       setToken(null);
       setUser(null);
     }

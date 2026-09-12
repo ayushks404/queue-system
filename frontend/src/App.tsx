@@ -14,16 +14,37 @@ import { AdminDashboard } from './components/admin/AdminDashboard';
 const MainContent: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<string>(() => {
+    const saved = sessionStorage.getItem('activeTab');
+    if (saved) return saved;
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        if (u.role === 'ADMIN') return 'admin';
+        if (u.role === 'STAFF') return 'staff';
+      } catch {}
+    }
     return 'book';
   });
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
 
-  // Auto-switch tab if user role changes
+  const handleSetActiveTab = (tab: string) => {
+    setActiveTab(tab);
+    sessionStorage.setItem('activeTab', tab);
+  };
+
+  // Auto-switch tab if user role changes or initial login occurs
   React.useEffect(() => {
-    if (user?.role === 'STAFF' && activeTab === 'dashboard') {
-      setActiveTab('staff');
-    } else if (user?.role === 'ADMIN' && activeTab === 'dashboard') {
-      setActiveTab('admin');
+    const savedTab = sessionStorage.getItem('activeTab');
+    if (!savedTab) {
+      if (user?.role === 'STAFF') {
+        setActiveTab('staff');
+      } else if (user?.role === 'ADMIN') {
+        setActiveTab('admin');
+      }
+    } else if (user?.role === 'CUSTOMER' && (savedTab === 'admin' || savedTab === 'staff')) {
+      setActiveTab('dashboard');
+      sessionStorage.setItem('activeTab', 'dashboard');
     }
   }, [user?.role]);
 
@@ -31,7 +52,7 @@ const MainContent: React.FC = () => {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleSetActiveTab}
         onOpenAuth={() => setAuthModalOpen(true)}
       />
 

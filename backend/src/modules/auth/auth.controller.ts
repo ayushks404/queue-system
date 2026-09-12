@@ -4,7 +4,10 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../../lib/prisma';
 import { redis } from '../../lib/redis';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key_queue_system_2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 
 export async function register(req: Request, res: Response) {
   try {
@@ -38,6 +41,8 @@ export async function register(req: Request, res: Response) {
         password_hash,
         name,
         phone,
+        // Self-service registration is always CUSTOMER. STAFF/ADMIN accounts are
+        // provisioned by an existing admin via PATCH /api/admin/users/:id/role.
         role: 'CUSTOMER'
       },
       select: {
@@ -102,8 +107,8 @@ export async function login(req: Request, res: Response) {
     }
 
     const payload = { id: user.id, email: user.email, role: user.role };
-    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ ...payload, type: 'refresh' }, JWT_SECRET, { expiresIn: '7d' });
+    const accessToken = jwt.sign(payload, JWT_SECRET!, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ ...payload, type: 'refresh' }, JWT_SECRET!, { expiresIn: '7d' });
 
     return res.status(200).json({
       success: true,
@@ -132,7 +137,7 @@ export async function login(req: Request, res: Response) {
 
 export async function refresh(req: Request, res: Response) {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.body.refreshToken || req.body.refresh_token;
     if (!refreshToken) {
       return res.status(400).json({
         success: false,
@@ -159,7 +164,7 @@ export async function refresh(req: Request, res: Response) {
       });
     }
 
-    const decoded = jwt.verify(refreshToken, JWT_SECRET) as any;
+    const decoded = jwt.verify(refreshToken, JWT_SECRET!) as any;
     if (decoded.type !== 'refresh') {
       return res.status(401).json({
         success: false,
@@ -172,14 +177,15 @@ export async function refresh(req: Request, res: Response) {
 
     const newAccessToken = jwt.sign(
       { id: decoded.id, email: decoded.email, role: decoded.role },
-      JWT_SECRET,
+      JWT_SECRET!,
       { expiresIn: '15m' }
     );
 
     return res.status(200).json({
       success: true,
       data: {
-        accessToken: newAccessToken
+        accessToken: newAccessToken,
+        access_token: newAccessToken
       }
     });
   } catch (error: any) {
@@ -195,7 +201,7 @@ export async function refresh(req: Request, res: Response) {
 
 export async function logout(req: Request, res: Response) {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.body.refreshToken || req.body.refresh_token;
     if (refreshToken) {
       if (redis.status !== 'ready' && redis.status !== 'connecting' && redis.status !== 'connect') {
         await redis.connect().catch(() => {});
