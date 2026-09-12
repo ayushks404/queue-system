@@ -12,6 +12,10 @@ import {
   Clock,
   MapPin,
   RefreshCw,
+  Info,
+  Trash2,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 
 export const StaffDashboard: React.FC = () => {
@@ -27,6 +31,19 @@ export const StaffDashboard: React.FC = () => {
   const [callingNext, setCallingNext] = useState<boolean>(false);
   const [activeTicket, setActiveTicket] = useState<QueueEntry | null>(null);
 
+  // Removal Confirmation & Informational Card states
+  const [ticketToRemove, setTicketToRemove] = useState<QueueEntry | null>(null);
+  const [removingTicket, setRemovingTicket] = useState<boolean>(false);
+  const [removedTicketInfo, setRemovedTicketInfo] = useState<{
+    id: string;
+    queueNumber: number;
+    customerName: string;
+    serviceName?: string;
+    priority?: string;
+    timestamp: Date;
+  } | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'info' | 'success' | 'error'; text: string } | null>(null);
+
   // Walk-in modal state
   const [showWalkInModal, setShowWalkInModal] = useState<boolean>(false);
   const [walkInName, setWalkInName] = useState<string>('');
@@ -35,6 +52,26 @@ export const StaffDashboard: React.FC = () => {
   const [walkInPriority, setWalkInPriority] = useState<'NORMAL' | 'PRIORITY' | 'EMERGENCY'>('NORMAL');
   const [walkInSubmitting, setWalkInSubmitting] = useState<boolean>(false);
   const [walkInError, setWalkInError] = useState<string | null>(null);
+
+  // Auto dismiss removed ticket informational card after 10s
+  useEffect(() => {
+    if (removedTicketInfo) {
+      const timer = setTimeout(() => {
+        setRemovedTicketInfo(null);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [removedTicketInfo]);
+
+  // Auto dismiss feedback banner after 6s
+  useEffect(() => {
+    if (feedbackMessage) {
+      const timer = setTimeout(() => {
+        setFeedbackMessage(null);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [feedbackMessage]);
 
   // Load catalog on mount
   useEffect(() => {
@@ -115,10 +152,10 @@ export const StaffDashboard: React.FC = () => {
         setActiveTicket(data.queueEntry);
         await fetchBranchData();
       } else {
-        alert('No waiting customers in the queue.');
+        setFeedbackMessage({ type: 'info', text: 'No waiting customers in the queue.' });
       }
     } catch (err: any) {
-      alert(err.message || 'No waiting customers in the queue.');
+      setFeedbackMessage({ type: 'info', text: err.message || 'No waiting customers in the queue.' });
     } finally {
       setCallingNext(false);
     }
@@ -133,7 +170,34 @@ export const StaffDashboard: React.FC = () => {
       }
       await fetchBranchData();
     } catch (err: any) {
-      alert(err.message || 'Failed to update ticket status');
+      setFeedbackMessage({ type: 'error', text: err.message || 'Failed to update ticket status' });
+    }
+  };
+
+  // Handle Confirm Remove Queue Ticket
+  const handleConfirmRemoveTicket = async () => {
+    if (!ticketToRemove) return;
+    setRemovingTicket(true);
+    try {
+      await api.patch(`/queue/${ticketToRemove.id}/status`, { status: 'CANCELLED' });
+      if (activeTicket?.id === ticketToRemove.id) {
+        setActiveTicket(null);
+      }
+      const info = {
+        id: ticketToRemove.id,
+        queueNumber: ticketToRemove.queue_number,
+        customerName: ticketToRemove.customer_name,
+        serviceName: ticketToRemove.service?.name,
+        priority: ticketToRemove.priority,
+        timestamp: new Date()
+      };
+      setTicketToRemove(null);
+      setRemovedTicketInfo(info);
+      await fetchBranchData();
+    } catch (err: any) {
+      setFeedbackMessage({ type: 'error', text: err.message || 'Failed to remove ticket from queue' });
+    } finally {
+      setRemovingTicket(false);
     }
   };
 
@@ -143,7 +207,7 @@ export const StaffDashboard: React.FC = () => {
       await api.patch(`/appointments/${id}/status`, { status });
       await fetchBranchData();
     } catch (err: any) {
-      alert(err.message || 'Failed to update appointment status');
+      setFeedbackMessage({ type: 'error', text: err.message || 'Failed to update appointment status' });
     }
   };
 
@@ -207,6 +271,39 @@ export const StaffDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Feedback Banner */}
+      {feedbackMessage && (
+        <div
+          className="glass-card"
+          style={{
+            padding: '0.85rem 1.25rem',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+            borderRadius: '10px',
+            border: `1px solid ${feedbackMessage.type === 'error' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(99, 102, 241, 0.4)'}`,
+            background: feedbackMessage.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(99, 102, 241, 0.1)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem' }}>
+            {feedbackMessage.type === 'error' ? (
+              <AlertCircle size={18} color="#f87171" />
+            ) : (
+              <Info size={18} color="#818cf8" />
+            )}
+            <span>{feedbackMessage.text}</span>
+          </div>
+          <button
+            onClick={() => setFeedbackMessage(null)}
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Main Action Bar: Call Next & Add Walk-in */}
       <div className="glass-card" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1.5rem', marginBottom: '1.5rem', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(6, 182, 212, 0.12))' }}>
         <div>
@@ -264,13 +361,9 @@ export const StaffDashboard: React.FC = () => {
               </button>
               <button
                 className="btn btn-danger btn-sm"
-                onClick={() => {
-                  if (confirm('Cancel this ticket?')) {
-                    handleUpdateQueueStatus(activeTicket.id, 'CANCELLED');
-                  }
-                }}
+                onClick={() => setTicketToRemove(activeTicket)}
               >
-                Cancel
+                Remove
               </button>
             </div>
           ) : (
@@ -303,6 +396,63 @@ export const StaffDashboard: React.FC = () => {
               {queueEntries.length} Total
             </span>
           </div>
+
+          {/* Removed Ticket Informational Card */}
+          {removedTicketInfo && (
+            <div
+              className="glass-card"
+              style={{
+                padding: '1rem 1.25rem',
+                marginBottom: '1rem',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(15, 23, 42, 0.65))',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '1rem',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                animation: 'fadeIn 0.25s ease-out'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <div style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#f87171',
+                  flexShrink: 0
+                }}>
+                  <Info size={20} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>
+                    Ticket #{removedTicketInfo.queueNumber} Removed from Live Queue
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    Customer: <strong>{removedTicketInfo.customerName}</strong>
+                    {removedTicketInfo.serviceName ? ` · Service: ${removedTicketInfo.serviceName}` : ''}
+                    {removedTicketInfo.priority ? ` · Priority: ${removedTicketInfo.priority}` : ''}
+                    {' · '}
+                    <span style={{ color: 'var(--text-faint)' }}>
+                      {removedTicketInfo.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setRemovedTicketInfo(null)}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
 
           {loading ? (
             <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Loading queue...</div>
@@ -365,11 +515,7 @@ export const StaffDashboard: React.FC = () => {
                         </button>
                         <button
                           className="btn btn-danger btn-sm"
-                          onClick={() => {
-                            if (confirm(`Remove ticket #${ticket.queue_number} (${ticket.customer_name}) from the queue?`)) {
-                              handleUpdateQueueStatus(ticket.id, 'CANCELLED');
-                            }
-                          }}
+                          onClick={() => setTicketToRemove(ticket)}
                         >
                           Remove
                         </button>
@@ -552,6 +698,81 @@ export const StaffDashboard: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* REMOVAL CONFIRMATION MODAL CARD */}
+      {ticketToRemove && (
+        <div className="modal-overlay" onClick={() => !removingTicket && setTicketToRemove(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '460px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--accent-rose, #f43f5e)',
+                flexShrink: 0
+              }}>
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', margin: 0 }}>Remove Queue Ticket</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
+                  Confirm removing this ticket from the active live queue.
+                </p>
+              </div>
+            </div>
+
+            <div className="glass-card" style={{ padding: '1rem', marginBottom: '1.25rem', background: 'rgba(15, 23, 42, 0.4)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Ticket Number</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-main)' }}>
+                  #{ticketToRemove.queue_number}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Customer</span>
+                <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{ticketToRemove.customer_name}</span>
+              </div>
+              {ticketToRemove.customer_phone && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Phone</span>
+                  <span style={{ fontSize: '0.85rem' }}>{ticketToRemove.customer_phone}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Priority</span>
+                <span className={`badge badge-priority-${ticketToRemove.priority.toLowerCase()}`}>
+                  {ticketToRemove.priority}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setTicketToRemove(null)}
+                disabled={removingTicket}
+              >
+                Keep Ticket
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleConfirmRemoveTicket}
+                disabled={removingTicket}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <Trash2 size={16} />
+                {removingTicket ? 'Removing...' : 'Confirm Remove'}
+              </button>
+            </div>
           </div>
         </div>
       )}
