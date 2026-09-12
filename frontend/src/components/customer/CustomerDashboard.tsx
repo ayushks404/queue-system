@@ -16,6 +16,7 @@ export const CustomerDashboard: React.FC = () => {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>([]);
+  const [waitlistPositions, setWaitlistPositions] = useState<Record<string, { position: number; estimated_wait_minutes: number }>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'history' | 'waitlist'>('upcoming');
 
@@ -32,6 +33,32 @@ export const CustomerDashboard: React.FC = () => {
   const [slotsLoading, setSlotsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const fetchWaitlistPositions = useCallback(async (entries: WaitlistEntry[]) => {
+    const waiting = entries.filter((w) => w.status === 'WAITING');
+    if (waiting.length === 0) return;
+    try {
+      const results = await Promise.all(
+        waiting.map(async (w) => {
+          try {
+            const res = await api.get<{ data: { position: number; estimated_wait_minutes: number } }>(`/waitlist/${w.id}/position`);
+            return { id: w.id, data: res.data };
+          } catch {
+            return null;
+          }
+        })
+      );
+      const posMap: Record<string, { position: number; estimated_wait_minutes: number }> = {};
+      for (const r of results) {
+        if (r && r.data) {
+          posMap[r.id] = r.data;
+        }
+      }
+      setWaitlistPositions((prev) => ({ ...prev, ...posMap }));
+    } catch (err) {
+      console.error('Failed to fetch waitlist positions:', err);
+    }
+  }, []);
+
   const fetchUserData = useCallback(async () => {
     if (!user) return;
     try {
@@ -41,14 +68,16 @@ export const CustomerDashboard: React.FC = () => {
         api.get<{ waitlist: WaitlistEntry[] }>('/waitlist/me').catch(() => ({ waitlist: [] })),
       ]);
 
+      const wEntries = waitlistData.waitlist || [];
       setAppointments(apptsData.appointments || []);
-      setWaitlistEntries(waitlistData.waitlist || []);
+      setWaitlistEntries(wEntries);
+      fetchWaitlistPositions(wEntries);
     } catch (err) {
       console.error('Failed to load customer data:', err);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, fetchWaitlistPositions]);
 
   useEffect(() => {
     fetchUserData();
@@ -271,7 +300,7 @@ export const CustomerDashboard: React.FC = () => {
                             {w.status}
                           </span>
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            Date: {w.preferred_date}
+                            Date: {w.requested_date || (w as any).preferred_date}
                           </span>
                         </div>
                         <h4 style={{ fontSize: '1rem' }}>
@@ -297,10 +326,15 @@ export const CustomerDashboard: React.FC = () => {
                         </div>
                       ) : (
                         <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-faint)' }}>Waitlist Status</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-faint)' }}>Waitlist Queue Position</div>
                           <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>
-                            Active in FIFO Queue
+                            {waitlistPositions[w.id] ? `#${waitlistPositions[w.id].position} in line` : 'Active in FIFO Queue'}
                           </div>
+                          {waitlistPositions[w.id] && waitlistPositions[w.id].estimated_wait_minutes > 0 && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                              ~{waitlistPositions[w.id].estimated_wait_minutes} min estimated wait
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

@@ -60,6 +60,7 @@ export const AdminDashboard: React.FC = () => {
   const [serviceBuffer, setServiceBuffer] = useState<number>(5);
   const [serviceCapacity, setServiceCapacity] = useState<number>(1);
   const [servicePrice, setServicePrice] = useState<number>(50);
+  const [serviceResourceTypes, setServiceResourceTypes] = useState<string[]>([]);
 
   // Resource Modal state
   const [showResourceModal, setShowResourceModal] = useState<boolean>(false);
@@ -236,6 +237,7 @@ export const AdminDashboard: React.FC = () => {
   const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      let serviceId = editingService?.id;
       if (editingService) {
         await api.patch(`/services/${editingService.id}`, {
           name: serviceName,
@@ -246,7 +248,7 @@ export const AdminDashboard: React.FC = () => {
           price: Number(servicePrice),
         });
       } else {
-        await api.post('/services', {
+        const res = await api.post<any>('/services', {
           name: serviceName,
           description: serviceDesc,
           duration_minutes: Number(serviceDuration),
@@ -254,9 +256,16 @@ export const AdminDashboard: React.FC = () => {
           capacity: Number(serviceCapacity),
           price: Number(servicePrice),
         });
+        serviceId = res?.data?.id || res?.service?.id || res?.id;
+      }
+      if (serviceId) {
+        await api.post(`/services/${serviceId}/resources`, {
+          resource_types: serviceResourceTypes,
+        });
       }
       setShowServiceModal(false);
       setEditingService(null);
+      setServiceResourceTypes([]);
       await loadData();
     } catch (err: any) {
       alert(err.message || 'Failed to save service');
@@ -551,8 +560,7 @@ export const AdminDashboard: React.FC = () => {
           {/* SERVICES TAB */}
           {activeTab === 'services' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-                <button
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>                  <button
                   className="btn btn-primary btn-sm"
                   onClick={() => {
                     setEditingService(null);
@@ -562,6 +570,7 @@ export const AdminDashboard: React.FC = () => {
                     setServiceBuffer(5);
                     setServiceCapacity(1);
                     setServicePrice(50);
+                    setServiceResourceTypes([]);
                     setShowServiceModal(true);
                   }}
                 >
@@ -605,7 +614,14 @@ export const AdminDashboard: React.FC = () => {
                           setServiceBuffer(s.buffer_time_minutes);
                           setServiceCapacity(s.capacity);
                           setServicePrice(s.price || 0);
+                          setServiceResourceTypes([]);
                           setShowServiceModal(true);
+                          api.get<{ data?: { resource_type: string }[]; resources?: { resource_type: string }[] }>(`/services/${s.id}/resources`)
+                            .then((res) => {
+                              const list = res.data || res.resources || [];
+                              setServiceResourceTypes(list.map((item) => item.resource_type));
+                            })
+                            .catch((err) => console.error('Failed to load service resources:', err));
                         }}
                       >
                         <Edit2 size={13} /> Edit
@@ -891,6 +907,44 @@ export const AdminDashboard: React.FC = () => {
                     onChange={(e) => setServicePrice(Number(e.target.value))}
                   />
                 </div>
+              </div>
+
+              <div className="form-group" style={{ marginTop: '0.75rem' }}>
+                <label className="form-label">Required Resource Types</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
+                  {Array.from(new Set(['STAFF', 'ROOM', 'EQUIPMENT', 'DOCTOR', ...resources.map((r) => r.type)])).filter(Boolean).map((type) => {
+                    const isSelected = serviceResourceTypes.includes(type);
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        className={`badge ${isSelected ? 'badge-in_service' : 'badge-pending'}`}
+                        style={{
+                          cursor: 'pointer',
+                          border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-color)',
+                          background: isSelected ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                          color: isSelected ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                          padding: '0.35rem 0.75rem',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem',
+                          fontWeight: 500
+                        }}
+                        onClick={() => {
+                          if (isSelected) {
+                            setServiceResourceTypes(serviceResourceTypes.filter((t) => t !== type));
+                          } else {
+                            setServiceResourceTypes([...serviceResourceTypes, type]);
+                          }
+                        }}
+                      >
+                        {isSelected ? '✓ ' : '+ '} {type}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+                  Select resource types required simultaneously when booking this service.
+                </p>
               </div>
 
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
