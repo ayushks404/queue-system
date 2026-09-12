@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { X, Lock, Mail, User, Phone, Sparkles } from 'lucide-react';
+import { X, Lock, Mail, User, Phone } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -15,7 +15,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState<'CUSTOMER' | 'STAFF' | 'ADMIN'>('CUSTOMER');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -30,50 +29,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
       if (mode === 'login') {
         await login(email, password);
       } else {
-        await register({ email, password, name, phone, role });
+        await register({ email, password, name, phone });
       }
       onClose();
     } catch (err: any) {
       setError(err.message || 'Authentication failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickDemoLogin = async (demoRole: 'ADMIN' | 'STAFF' | 'CUSTOMER') => {
-    setError(null);
-    setLoading(true);
-    try {
-      if (demoRole === 'ADMIN') {
-        await login('admin@queue.local', 'AdminPassword123!');
-      } else if (demoRole === 'STAFF') {
-        // Try logging in or auto register staff
-        try {
-          await login('staff@queue.local', 'StaffPassword123!');
-        } catch {
-          await register({
-            email: 'staff@queue.local',
-            password: 'StaffPassword123!',
-            name: 'Staff Member',
-            role: 'STAFF',
-          });
-        }
-      } else {
-        try {
-          await login('customer@queue.local', 'CustomerPassword123!');
-        } catch {
-          await register({
-            email: 'customer@queue.local',
-            password: 'CustomerPassword123!',
-            name: 'John Doe',
-            phone: '+15550192',
-            role: 'CUSTOMER',
-          });
-        }
-      }
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'Demo login failed');
     } finally {
       setLoading(false);
     }
@@ -140,6 +100,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
           </button>
         </div>
 
+        {mode === 'register' && (
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem', lineHeight: '1.4' }}>
+            New accounts are created as Customers. Staff and Admin access is granted by an administrator.
+          </div>
+        )}
+
         {error && (
           <div style={{
             background: 'rgba(244, 63, 94, 0.15)',
@@ -187,19 +153,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
                   />
                 </div>
               </div>
-
-              <div className="form-group">
-                <label className="form-label">Account Role</label>
-                <select
-                  className="form-select"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as any)}
-                >
-                  <option value="CUSTOMER">Customer (Book & track appointments)</option>
-                  <option value="STAFF">Staff (Manage queue & call tickets)</option>
-                  <option value="ADMIN">Admin (Manage branches, services, resources)</option>
-                </select>
-              </div>
             </>
           )}
 
@@ -244,42 +197,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
             {loading ? 'Processing...' : mode === 'login' ? 'Sign In' : 'Create Account'}
           </button>
         </form>
-
-        {/* Quick Demo Logins */}
-        <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-subtle)' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <Sparkles size={13} color="#818cf8" /> One-Click Demo Logins
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => handleQuickDemoLogin('ADMIN')}
-              disabled={loading}
-              style={{ fontSize: '0.75rem' }}
-            >
-              Admin Seed
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => handleQuickDemoLogin('STAFF')}
-              disabled={loading}
-              style={{ fontSize: '0.75rem' }}
-            >
-              Staff Demo
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => handleQuickDemoLogin('CUSTOMER')}
-              disabled={loading}
-              style={{ fontSize: '0.75rem' }}
-            >
-              Customer Demo
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

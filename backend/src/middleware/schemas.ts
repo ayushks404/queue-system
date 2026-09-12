@@ -24,17 +24,35 @@ export const refreshSchema = z.object({
 // Catalog Schemas
 export const createBranchSchema = z.object({
   name: z.string().min(1, 'Branch name is required'),
+  address: z.string().min(1, 'Address is required'),
+  phone: z.string().min(1, 'Phone is required'),
+});
+
+export const updateBranchSchema = z.object({
+  name: z.string().min(1).optional(),
   address: z.string().optional(),
   phone: z.string().optional(),
-  timezone: z.string().optional(),
+  is_active: z.boolean().optional(),
 });
 
 export const createServiceSchema = z.object({
   name: z.string().min(1, 'Service name is required'),
+  description: z.string().optional(),
   duration_minutes: z.number().int().positive('Duration must be positive integer'),
   price: z.number().nonnegative().optional(),
   capacity: z.number().int().positive().optional(),
   buffer_time_minutes: z.number().int().nonnegative().optional(),
+  is_active: z.boolean().optional(),
+});
+
+export const updateServiceSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  duration_minutes: z.number().int().positive().optional(),
+  price: z.number().nonnegative().optional(),
+  capacity: z.number().int().positive().optional(),
+  buffer_time_minutes: z.number().int().nonnegative().optional(),
+  is_active: z.boolean().optional(),
 });
 
 // Booking Schemas
