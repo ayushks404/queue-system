@@ -9,6 +9,7 @@ import {
   rescheduleAppointment
 } from './appointments.controller';
 import { validate } from '../../middleware/validate';
+import { bookingLimiter } from '../../middleware/rateLimiter';
 import {
   createAppointmentSchema,
   cancelAppointmentSchema,
@@ -18,7 +19,7 @@ import {
 
 const router = Router();
 
-router.post('/', authenticate, validate(createAppointmentSchema), createAppointment);
+router.post('/', authenticate, bookingLimiter, validate(createAppointmentSchema), createAppointment);
 router.get('/', authenticate, listAppointments);
 router.get('/:id', authenticate, getAppointmentById);
 router.patch('/:id/status', authenticate, requireRole('STAFF', 'ADMIN'), validate(updateStatusSchema), updateAppointmentStatus);

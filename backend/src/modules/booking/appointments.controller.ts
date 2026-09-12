@@ -79,9 +79,10 @@ export async function listAppointments(req: Request, res: Response): Promise<voi
 export async function confirmReservationForUser(
   reservationId: string,
   userId: string,
-  options: { idempotencyKey?: string | null } = {}
-): Promise<{ appointment: any }> {
+  options: { idempotencyKey?: string | null; notes?: string | null } = {}
+): Promise<{ appointment: any; isExisting?: boolean }> {
   const idempotencyKey = options.idempotencyKey || null;
+  const notes = options.notes || null;
 
   if (idempotencyKey) {
     const existing = await prisma.appointment.findFirst({
@@ -91,7 +92,7 @@ export async function confirmReservationForUser(
         service: { select: { id: true, name: true, duration_minutes: true, price: true } }
       }
     });
-    if (existing) return { appointment: existing };
+    if (existing) return { appointment: existing, isExisting: true };
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -137,26 +138,42 @@ export async function confirmReservationForUser(
 
     const endTime = calculateEndTime(reservation.slot_time, service.duration_minutes);
     const year = new Date(reservation.slot_date).getUTCFullYear();
-    const randomNum = Math.floor(100000 + Math.random() * 900000);
-    const appointmentNumber = `APT-${year}-${randomNum}`;
 
-    const appointment = await tx.appointment.create({
-      data: {
-        appointment_number: appointmentNumber,
-        user_id: userId,
-        branch_id: reservation.branch_id,
-        service_id: reservation.service_id,
-        appointment_date: reservation.slot_date,
-        start_time: reservation.slot_time,
-        end_time: endTime,
-        status: 'CONFIRMED',
-        idempotency_key: idempotencyKey
-      },
-      include: {
-        branch: { select: { id: true, name: true, address: true } },
-        service: { select: { id: true, name: true, duration_minutes: true, price: true } }
+    let appointment: any;
+    let attempts = 0;
+    while (attempts < 3) {
+      try {
+        const randomNum = Math.floor(100000 + Math.random() * 900000);
+        const appointmentNumber = `APT-${year}-${randomNum}`;
+
+        appointment = await tx.appointment.create({
+          data: {
+            appointment_number: appointmentNumber,
+            user_id: userId,
+            branch_id: reservation.branch_id,
+            service_id: reservation.service_id,
+            appointment_date: reservation.slot_date,
+            start_time: reservation.slot_time,
+            end_time: endTime,
+            status: 'CONFIRMED',
+            notes: notes,
+            idempotency_key: idempotencyKey
+          },
+          include: {
+            branch: { select: { id: true, name: true, address: true } },
+            service: { select: { id: true, name: true, duration_minutes: true, price: true } }
+          }
+        });
+        break;
+      } catch (err: any) {
+        if (err.code === 'P2002' && (err.meta?.target?.includes('appointment_number') || String(err.message).includes('appointment_number'))) {
+          attempts++;
+          if (attempts >= 3) throw err;
+        } else {
+          throw err;
+        }
       }
-    });
+    }
 
     for (const resourceId of assignedResourceIds) {
       await tx.appointmentResource.create({
@@ -197,6 +214,7 @@ export async function createAppointment(req: Request, res: Response): Promise<vo
 
     const reservationId = req.body.reservationId || req.body.reservation_id;
     const idempotencyKey = (req.headers['idempotency-key'] as string) || req.body.idempotencyKey || req.body.idempotency_key;
+    const notes = req.body.notes || req.body.special_notes || req.body.specialNotes || null;
 
     if (!reservationId) {
       res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'reservationId is required' } });
@@ -204,8 +222,8 @@ export async function createAppointment(req: Request, res: Response): Promise<vo
     }
 
     try {
-      const { appointment } = await confirmReservationForUser(reservationId, userId, { idempotencyKey });
-      res.status(201).json({ success: true, data: appointment });
+      const { appointment, isExisting } = await confirmReservationForUser(reservationId, userId, { idempotencyKey, notes });
+      res.status(isExisting ? 200 : 201).json({ success: true, data: appointment });
     } catch (err: any) {
       if (err.message === 'NOT_FOUND') {
         res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Reservation not found' } });
@@ -442,6 +460,8 @@ export async function cancelAppointment(req: Request, res: Response): Promise<vo
       return;
     }
 
+    const reason = req.body.reason || req.body.cancellation_reason || req.body.cancellationReason || null;
+
     const updated = await prisma.$transaction(async (tx) => {
       const appt = await tx.appointment.update({
         where: { id },
@@ -452,6 +472,7 @@ export async function cancelAppointment(req: Request, res: Response): Promise<vo
         data: {
           appointment_id: id,
           action: 'APPOINTMENT_CANCELLED',
+          reason: reason,
           old_status: appointment.status,
           new_status: 'CANCELLED'
         }
@@ -493,11 +514,16 @@ export async function rescheduleAppointment(req: Request, res: Response): Promis
     const userId = req.user?.id;
     const userRole = req.user?.role;
     const { id } = req.params;
-
-    const newSlotDate = req.body.newSlotDate || req.body.new_slot_date || req.body.slotDate || req.body.slot_date;
-    const newSlotTime = req.body.newSlotTime || req.body.new_slot_time || req.body.slotTime || req.body.slot_time;
-    const newBranchId = req.body.newBranchId || req.body.new_branch_id || req.body.branchId || req.body.branch_id;
-    const newServiceId = req.body.newServiceId || req.body.new_service_id || req.body.serviceId || req.body.service_id;
+    const {
+      new_slot_date,
+      newSlotDate = new_slot_date,
+      new_slot_time,
+      newSlotTime = new_slot_time,
+      new_branch_id,
+      newBranchId = new_branch_id,
+      new_service_id,
+      newServiceId = new_service_id
+    } = req.body;
 
     if (!newSlotDate || !newSlotTime) {
       res.status(400).json({
@@ -536,7 +562,7 @@ export async function rescheduleAppointment(req: Request, res: Response): Promis
       return;
     }
 
-    if (appointment.status !== 'CONFIRMED' && appointment.status !== 'PENDING') {
+    if (appointment.status !== 'CONFIRMED') {
       res.status(400).json({
         success: false,
         error: {

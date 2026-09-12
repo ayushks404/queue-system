@@ -95,15 +95,6 @@ export async function joinWaitlist(req: Request, res: Response): Promise<void> {
       req.body.requestedTime || req.body.requested_time || req.body.preferredTime ||
       req.body.preferred_time || req.body.time;
 
-    const currentCount = await prisma.waitlist.count({
-      where: {
-        branch_id: branchId,
-        service_id: serviceId,
-        requested_date: targetDate,
-        status: 'WAITING'
-      }
-    });
-
     const entry = await prisma.waitlist.create({
       data: {
         user_id: userId,
@@ -111,7 +102,6 @@ export async function joinWaitlist(req: Request, res: Response): Promise<void> {
         service_id: serviceId,
         requested_date: targetDate,
         requested_time: requestedTime ? requestedTime.slice(0, 5) : null,
-        position: currentCount + 1,
         status: 'WAITING'
       },
       include: {

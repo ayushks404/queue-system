@@ -1,5 +1,4 @@
 export type AppointmentStatus =
-  | 'PENDING'
   | 'CONFIRMED'
   | 'CHECKED_IN'
   | 'IN_PROGRESS'
@@ -16,7 +15,6 @@ export function normalizeStatus(status: string): AppointmentStatus {
 }
 
 export const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
-  PENDING: ['CONFIRMED', 'CANCELLED'],
   CONFIRMED: ['CHECKED_IN', 'CANCELLED', 'NO_SHOW'],
   CHECKED_IN: ['IN_PROGRESS', 'NO_SHOW'],
   IN_PROGRESS: ['COMPLETED'],

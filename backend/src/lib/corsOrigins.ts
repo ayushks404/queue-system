@@ -10,12 +10,13 @@ export const allowedOrigins = [
   'http://127.0.0.1:5173',
 ].filter(Boolean) as string[];
 
+const LOCALHOST_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
 export function isOriginAllowed(origin?: string): boolean {
   if (!origin) return true;
   if (
     allowedOrigins.includes(origin) ||
-    origin.startsWith('http://localhost') ||
-    origin.startsWith('http://127.0.0.1')
+    LOCALHOST_REGEX.test(origin)
   ) {
     return true;
   }

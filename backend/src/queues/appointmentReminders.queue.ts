@@ -58,8 +58,8 @@ export async function sendAppointmentReminders(hoursAhead: number = 24): Promise
     const [hours, minutes] = appt.start_time.split(':').map(Number);
     const [year, month, day] = dateStr.split('-').map(Number);
 
-    // Construct scheduled time corresponding to the appointment
-    const apptScheduledTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    // Construct scheduled time corresponding to the appointment (in UTC)
+    const apptScheduledTime = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0));
 
     // If appointment is within the upcoming window [now, windowEnd]
     if (apptScheduledTime.getTime() >= now.getTime() && apptScheduledTime.getTime() <= windowEnd.getTime()) {

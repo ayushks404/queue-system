@@ -38,18 +38,36 @@ export async function processWaitlistForSlot(
   const targetDate = new Date(`${normalizedDateStr}T00:00:00.000Z`);
   const normalizedTime = slotTime.slice(0, 5);
 
-  // Find oldest waiting entry
-  const oldestEntry = await prisma.waitlist.findFirst({
+  // Ordering rule:
+  // 1. Prefer oldest WAITING entry whose requested_time matches the freed slot time, or is null ("any time").
+  // 2. Fall back to oldest WAITING entry for the target date (strict FIFO) if no specific time match exists.
+  let matchingEntry = await prisma.waitlist.findFirst({
     where: {
       branch_id: branchId,
       service_id: serviceId,
       requested_date: targetDate,
-      status: 'WAITING'
+      status: 'WAITING',
+      OR: [
+        { requested_time: normalizedTime },
+        { requested_time: null }
+      ]
     },
     orderBy: { created_at: 'asc' }
   });
 
-  if (!oldestEntry) {
+  if (!matchingEntry) {
+    matchingEntry = await prisma.waitlist.findFirst({
+      where: {
+        branch_id: branchId,
+        service_id: serviceId,
+        requested_date: targetDate,
+        status: 'WAITING'
+      },
+      orderBy: { created_at: 'asc' }
+    });
+  }
+
+  if (!matchingEntry) {
     return null;
   }
 
@@ -96,7 +114,7 @@ export async function processWaitlistForSlot(
       // 2. Create reservation for this waitlist user
       const reservation = await tx.reservation.create({
         data: {
-          user_id: oldestEntry.user_id,
+          user_id: matchingEntry.user_id,
           branch_id: branchId,
           service_id: serviceId,
           slot_date: targetDate,
@@ -107,7 +125,7 @@ export async function processWaitlistForSlot(
 
       // 3. Mark waitlist status as OFFERED and link the reservation it was offered
       const updatedEntry = await tx.waitlist.update({
-        where: { id: oldestEntry.id },
+        where: { id: matchingEntry.id },
         data: { status: 'OFFERED', reservation_id: reservation.id }
       });
 

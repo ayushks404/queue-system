@@ -65,7 +65,10 @@ export const createReservationSchema = z.object({
   slotDate: z.string().optional(),
   slot_time: z.string().optional(),
   slotTime: z.string().optional(),
-});
+}).refine(
+  (data) => (data.branch_id || data.branchId) && (data.service_id || data.serviceId) && (data.slot_date || data.slotDate) && (data.slot_time || data.slotTime),
+  { message: 'branch_id, service_id, slot_date, and slot_time are required' }
+);
 
 export const createAppointmentSchema = z.object({
   reservation_id: z.string().optional(),
@@ -73,7 +76,10 @@ export const createAppointmentSchema = z.object({
   notes: z.string().optional(),
   idempotency_key: z.string().optional(),
   idempotencyKey: z.string().optional(),
-});
+}).refine(
+  (data) => data.reservation_id || data.reservationId,
+  { message: 'reservation_id or reservationId is required' }
+);
 
 export const cancelAppointmentSchema = z.object({
   reason: z.string().optional(),
@@ -88,7 +94,14 @@ export const rescheduleAppointmentSchema = z.object({
   slotDate: z.string().optional(),
   slot_time: z.string().optional(),
   slotTime: z.string().optional(),
-});
+  new_branch_id: z.string().uuid().optional(),
+  newBranchId: z.string().uuid().optional(),
+  new_service_id: z.string().uuid().optional(),
+  newServiceId: z.string().uuid().optional(),
+}).refine(
+  (data) => (data.new_slot_date || data.newSlotDate || data.slot_date || data.slotDate) && (data.new_slot_time || data.newSlotTime || data.slot_time || data.slotTime),
+  { message: 'new_slot_date and new_slot_time are required' }
+);
 
 export const updateStatusSchema = z.object({
   status: z.string().min(1, 'Status is required'),
@@ -105,7 +118,10 @@ export const walkInQueueSchema = z.object({
   phone: z.string().optional(),
   customer_phone: z.string().optional(),
   priority: z.enum(['NORMAL', 'PRIORITY', 'EMERGENCY']).optional(),
-});
+}).refine(
+  (data) => (data.branch_id || data.branchId) && (data.service_id || data.serviceId) && (data.customer_name || data.customerName),
+  { message: 'branch_id, service_id, and customer_name are required' }
+);
 
 // Waitlist Schemas
 export const createWaitlistSchema = z.object({
@@ -123,4 +139,7 @@ export const createWaitlistSchema = z.object({
   preferred_time: z.string().optional(),
   preferredTime: z.string().optional(),
   time: z.string().optional(),
-});
+}).refine(
+  (data) => (data.branch_id || data.branchId) && (data.service_id || data.serviceId) && (data.preferred_date || data.preferredDate || data.requested_date || data.requestedDate || data.date),
+  { message: 'branch_id, service_id, and requested_date are required' }
+);
