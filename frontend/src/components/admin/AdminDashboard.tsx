@@ -442,7 +442,7 @@ export const AdminDashboard: React.FC = () => {
                         <Clock size={16} color="var(--accent-amber)" />
                       </div>
                       <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fbbf24' }}>
-                        {reportSummary.avg_wait_time}m
+                        {Number(reportSummary.avg_wait_time || 0).toFixed(4)}m
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                         Queue to Service Counter
