@@ -4,9 +4,9 @@ import { Router } from 'express';
 export const openApiSpec = {
   openapi: '3.0.0',
   info: {
-    title: 'OmniQueue API Documentation',
+    title: 'MediQ API Documentation',
     version: '1.0.0',
-    description: 'Comprehensive REST API documentation for Smart Multi-Branch Appointment & Queue Management System.'
+    description: 'REST API for MediQ — a multi-branch hospital OPD appointment and queue management system.'
   },
   servers: [
     {
