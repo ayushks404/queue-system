@@ -111,16 +111,18 @@ export const updateStatusSchema = z.object({
 export const walkInQueueSchema = z.object({
   branch_id: z.string().uuid().optional(),
   branchId: z.string().uuid().optional(),
-  service_id: z.string().uuid().optional(),
-  serviceId: z.string().uuid().optional(),
+  service_id: z.string().uuid().optional().or(z.literal('')).nullable(),
+  serviceId: z.string().uuid().optional().or(z.literal('')).nullable(),
+  appointment_id: z.string().uuid().optional().or(z.literal('')).nullable(),
+  appointmentId: z.string().uuid().optional().or(z.literal('')).nullable(),
   customer_name: z.string().min(1, 'Customer name is required').optional(),
   customerName: z.string().min(1, 'Customer name is required').optional(),
-  phone: z.string().optional(),
-  customer_phone: z.string().optional(),
+  phone: z.string().optional().nullable(),
+  customer_phone: z.string().optional().nullable(),
   priority: z.enum(['NORMAL', 'PRIORITY', 'EMERGENCY']).optional(),
 }).refine(
-  (data) => (data.branch_id || data.branchId) && (data.service_id || data.serviceId) && (data.customer_name || data.customerName),
-  { message: 'branch_id, service_id, and customer_name are required' }
+  (data) => (data.branch_id || data.branchId) && (data.customer_name || data.customerName),
+  { message: 'branch_id and customer_name are required' }
 );
 
 // Waitlist Schemas
