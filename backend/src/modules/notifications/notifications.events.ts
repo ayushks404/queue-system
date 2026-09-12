@@ -149,6 +149,25 @@ export function registerNotificationSubscribers(): () => void {
     });
   });
 
+  // 8. appointment.reminder
+  addSub('appointment.reminder', async (data) => {
+    if (!data.userId) return;
+    const notif = await prisma.notification.create({
+      data: {
+        user_id: data.userId,
+        type: 'APPOINTMENT_REMINDER',
+        message: `Reminder: You have an upcoming appointment (${data.appointmentNumber || ''}) on ${data.appointmentDate} at ${data.startTime}.`
+      }
+    });
+    eventBus.publish('notification.created', {
+      userId: notif.user_id,
+      id: notif.id,
+      type: notif.type,
+      message: notif.message,
+      createdAt: notif.created_at
+    });
+  });
+
   return () => {
     for (const unsub of unsubscribers) {
       unsub();

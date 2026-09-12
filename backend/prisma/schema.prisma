@@ -64,16 +64,18 @@ model Holiday {
 }
 
 model Service {
-  id                String            @id @default(uuid()) @db.Uuid
-  name              String
-  duration_minutes  Int
-  price             Decimal           @db.Decimal(10, 2)
-  capacity          Int               @default(1)
-  is_active         Boolean           @default(true)
-  service_resources ServiceResource[]
-  appointments      Appointment[]
-  reservations      Reservation[]
-  waitlists         Waitlist[]
+  id                  String            @id @default(uuid()) @db.Uuid
+  name                String
+  description         String?
+  duration_minutes    Int
+  price               Decimal           @db.Decimal(10, 2)
+  capacity            Int               @default(1)
+  buffer_time_minutes Int?              @default(0)
+  is_active           Boolean           @default(true)
+  service_resources   ServiceResource[]
+  appointments        Appointment[]
+  reservations        Reservation[]
+  waitlists           Waitlist[]
 
   @@map("services")
 }
@@ -109,15 +111,17 @@ model Appointment {
   start_time            String
   end_time              String
   status                String                @default("PENDING")
-  idempotency_key       String?               @unique
+  idempotency_key       String?
+  reminder_sent_at      DateTime?
   created_at            DateTime              @default(now())
   user                  User                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  branch                Branch                @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  service               Service               @relation(fields: [service_id], references: [id], onDelete: Cascade)
+  branch                Branch                @relation(fields: [branch_id], references: [id], onDelete: Restrict)
+  service               Service               @relation(fields: [service_id], references: [id], onDelete: Restrict)
   appointment_resources AppointmentResource[]
   queue_entries         QueueEntry[]
   audit_logs            AuditLog[]
 
+  @@unique([user_id, idempotency_key], name: "user_idempotency_key_unique")
   @@index([branch_id, appointment_date, status])
   @@map("appointments")
 }
@@ -145,7 +149,7 @@ model Reservation {
   branch     Branch   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
   service    Service  @relation(fields: [service_id], references: [id], onDelete: Cascade)
 
-  @@unique([branch_id, service_id, slot_date, slot_time], name: "branch_service_slot_unique")
+  @@index([branch_id, service_id, slot_date, slot_time])
   @@map("reservations")
 }
 
@@ -157,6 +161,7 @@ model Waitlist {
   requested_date DateTime @db.Date
   position       Int      @default(1)
   status         String   @default("WAITING")
+  reservation_id String?  @db.Uuid
   created_at     DateTime @default(now())
   user           User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   branch         Branch   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
