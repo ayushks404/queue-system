@@ -110,7 +110,8 @@ model Appointment {
   appointment_date      DateTime              @db.Date
   start_time            String
   end_time              String
-  status                String                @default("PENDING")
+  status                String                @default("CONFIRMED")
+  notes                 String?
   idempotency_key       String?
   reminder_sent_at      DateTime?
   created_at            DateTime              @default(now())
@@ -160,7 +161,6 @@ model Waitlist {
   service_id     String   @db.Uuid
   requested_date DateTime @db.Date
   requested_time String?
-  position       Int      @default(1)
   status         String   @default("WAITING")
   reservation_id String?  @db.Uuid
   created_at     DateTime @default(now())
@@ -205,6 +205,7 @@ model AuditLog {
   id             String      @id @default(uuid()) @db.Uuid
   appointment_id String      @db.Uuid
   action         String
+  reason         String?
   old_status     String?
   new_status     String?
   created_at     DateTime    @default(now())
