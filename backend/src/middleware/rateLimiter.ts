@@ -28,6 +28,34 @@ export const appointmentsLimiter = rateLimit({
   },
 });
 
+export const bookingLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: process.env.NODE_ENV === 'test' ? 1000 : 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: 'RATE_LIMIT_EXCEEDED',
+      message: 'Too many booking requests, please try again later.',
+    },
+  },
+});
+
+export const walkInLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: process.env.NODE_ENV === 'test' ? 1000 : 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: 'RATE_LIMIT_EXCEEDED',
+      message: 'Too many walk-in queue requests, please try again later.',
+    },
+  },
+});
+
 export const testRateLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 3,

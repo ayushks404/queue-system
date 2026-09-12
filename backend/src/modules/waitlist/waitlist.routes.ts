@@ -9,10 +9,11 @@ import {
 } from './waitlist.controller';
 import { validate } from '../../middleware/validate';
 import { createWaitlistSchema } from '../../middleware/schemas';
+import { bookingLimiter } from '../../middleware/rateLimiter';
 
 const router = Router();
 
-router.post('/', authenticate, validate(createWaitlistSchema), joinWaitlist);
+router.post('/', bookingLimiter, authenticate, validate(createWaitlistSchema), joinWaitlist);
 router.get('/', authenticate, getUserWaitlists);
 router.get('/me', authenticate, getUserWaitlists);
 router.get('/:id/position', authenticate, getWaitlistPosition);

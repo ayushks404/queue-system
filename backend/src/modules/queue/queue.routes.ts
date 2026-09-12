@@ -8,10 +8,11 @@ import {
 } from './queue.controller';
 import { validate } from '../../middleware/validate';
 import { walkInQueueSchema, updateStatusSchema } from '../../middleware/schemas';
+import { walkInLimiter } from '../../middleware/rateLimiter';
 
 const router = Router();
 
-router.post('/walk-in', authenticate, requireRole('STAFF', 'ADMIN'), validate(walkInQueueSchema), createWalkIn);
+router.post('/walk-in', walkInLimiter, authenticate, requireRole('STAFF', 'ADMIN'), validate(walkInQueueSchema), createWalkIn);
 router.patch('/:id/status', authenticate, requireRole('STAFF', 'ADMIN'), validate(updateStatusSchema), updateQueueStatus);
 router.post('/:branchId/call-next', authenticate, requireRole('STAFF', 'ADMIN'), callNext);
 router.get('/:branchId', authenticate, requireRole('STAFF', 'ADMIN'), getBranchQueue);
