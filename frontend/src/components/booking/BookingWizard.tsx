@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { Branch, Service, Reservation, Appointment } from '../../types';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -21,6 +21,7 @@ interface BookingWizardProps {
 
 export const BookingWizard: React.FC<BookingWizardProps> = ({ onSuccessNavigate, onOpenAuth }) => {
   const { user } = useAuth();
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   // Data state
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -111,6 +112,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ onSuccessNavigate,
       });
       setSelectedSlot(slot);
       setReservation(res.reservation);
+      idempotencyKeyRef.current = null; // fresh reservation -> fresh key
       setStep(4);
     } catch (err: any) {
       setError(err.message || 'Slot is no longer available. Please select another slot.');
@@ -126,7 +128,10 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ onSuccessNavigate,
     try {
       setSubmitting(true);
       setError(null);
-      const idempotencyKey = `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      if (!idempotencyKeyRef.current) {
+        idempotencyKeyRef.current = `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      }
+      const idempotencyKey = idempotencyKeyRef.current;
       const data = await api.post<{ appointment: Appointment }>(
         '/appointments',
         {
@@ -554,11 +559,15 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ onSuccessNavigate,
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
               <span style={{ color: 'var(--text-muted)' }}>Date:</span>
-              <span style={{ fontWeight: 600 }}>{confirmedAppointment.slot_date}</span>
+              <span style={{ fontWeight: 600 }}>
+                {confirmedAppointment.appointment_date?.split('T')[0] || confirmedAppointment.slot_date || selectedDate}
+              </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
               <span style={{ color: 'var(--text-muted)' }}>Time Slot:</span>
-              <span style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>{confirmedAppointment.slot_time}</span>
+              <span style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>
+                {confirmedAppointment.start_time || confirmedAppointment.slot_time || selectedSlot}
+              </span>
             </div>
           </div>
 

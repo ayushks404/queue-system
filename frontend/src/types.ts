@@ -13,7 +13,8 @@ export interface Branch {
   id: string;
   name: string;
   address?: string;
-  timezone: string;
+  phone?: string;
+  timezone?: string;
   is_active: boolean;
   created_at: string;
   business_hours?: BusinessHour[];
@@ -95,12 +96,15 @@ export interface Appointment {
   user_id: string;
   branch_id: string;
   service_id: string;
-  slot_date: string;
-  slot_time: string;
+  appointment_date?: string;
+  start_time?: string;
+  end_time?: string;
+  slot_date?: string;
+  slot_time?: string;
   status: AppointmentStatus;
   notes?: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
   user?: User;
   branch?: Branch;
   service?: Service;

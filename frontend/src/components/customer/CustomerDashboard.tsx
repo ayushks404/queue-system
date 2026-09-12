@@ -186,10 +186,10 @@ export const CustomerDashboard: React.FC = () => {
                             <MapPin size={15} color="var(--accent-primary)" /> {appt.branch?.name || 'Branch'}
                           </span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <Calendar size={15} color="var(--accent-cyan)" /> {appt.slot_date}
+                            <Calendar size={15} color="var(--accent-cyan)" /> {appt.appointment_date?.split('T')[0] || appt.slot_date}
                           </span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <Clock size={15} color="var(--accent-emerald)" /> {appt.slot_time}
+                            <Clock size={15} color="var(--accent-emerald)" /> {appt.start_time || appt.slot_time}
                           </span>
                         </div>
                       </div>
@@ -199,9 +199,10 @@ export const CustomerDashboard: React.FC = () => {
                         <button
                           className="btn btn-secondary btn-sm"
                           onClick={() => {
+                            const dateStr = appt.appointment_date?.split('T')[0] || appt.slot_date || '';
                             setRescheduleModalAppt(appt);
-                            setRescheduleDate(appt.slot_date);
-                            handleDateChangeForReschedule(appt.slot_date);
+                            setRescheduleDate(dateStr);
+                            handleDateChangeForReschedule(dateStr);
                           }}
                         >
                           <RotateCcw size={14} /> Reschedule
@@ -243,7 +244,7 @@ export const CustomerDashboard: React.FC = () => {
                         {appt.service?.name || 'Service'} · {appt.branch?.name || 'Branch'}
                       </h4>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-faint)' }}>
-                        Date: {appt.slot_date} at {appt.slot_time}
+                        Date: {appt.appointment_date?.split('T')[0] || appt.slot_date} at {appt.start_time || appt.slot_time}
                       </div>
                     </div>
                   ))}
