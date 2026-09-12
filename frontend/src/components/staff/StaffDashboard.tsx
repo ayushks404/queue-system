@@ -71,8 +71,8 @@ export const StaffDashboard: React.FC = () => {
       setQueueEntries(queueData.queue || []);
       setAppointments(apptsData.appointments || []);
 
-      // Check if any ticket is currently CALLED or SERVING
-      const active = (queueData.queue || []).find((q: QueueEntry) => q.status === 'CALLED' || q.status === 'SERVING');
+      // Check if any ticket is currently CALLED or IN_PROGRESS
+      const active = (queueData.queue || []).find((q: QueueEntry) => q.status === 'CALLED' || q.status === 'IN_PROGRESS');
       if (active) setActiveTicket(active);
     } catch (err) {
       console.error('Failed to fetch branch data:', err);
@@ -244,7 +244,7 @@ export const StaffDashboard: React.FC = () => {
               {activeTicket.status === 'CALLED' && (
                 <button
                   className="btn btn-primary"
-                  onClick={() => handleUpdateQueueStatus(activeTicket.id, 'SERVING')}
+                  onClick={() => handleUpdateQueueStatus(activeTicket.id, 'IN_PROGRESS')}
                   style={{ background: 'var(--accent-cyan)' }}
                 >
                   <Play size={16} /> Start Service
@@ -257,10 +257,20 @@ export const StaffDashboard: React.FC = () => {
                 <CheckCircle size={16} /> Complete Ticket
               </button>
               <button
-                className="btn btn-danger btn-sm"
+                className="btn btn-secondary btn-sm"
                 onClick={() => handleUpdateQueueStatus(activeTicket.id, 'SKIPPED')}
               >
                 Skip / No-Show
+              </button>
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={() => {
+                  if (confirm('Cancel this ticket?')) {
+                    handleUpdateQueueStatus(activeTicket.id, 'CANCELLED');
+                  }
+                }}
+              >
+                Cancel
               </button>
             </div>
           ) : (
@@ -346,12 +356,24 @@ export const StaffDashboard: React.FC = () => {
                     </div>
 
                     {ticket.status === 'WAITING' && (
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => handleUpdateQueueStatus(ticket.id, 'CALLED')}
-                      >
-                        <PhoneCall size={13} /> Call
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => handleUpdateQueueStatus(ticket.id, 'CALLED')}
+                        >
+                          <PhoneCall size={13} /> Call
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => {
+                            if (confirm(`Remove ticket #${ticket.queue_number} (${ticket.customer_name}) from the queue?`)) {
+                              handleUpdateQueueStatus(ticket.id, 'CANCELLED');
+                            }
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -413,12 +435,12 @@ export const StaffDashboard: React.FC = () => {
                     {appt.status === 'CHECKED_IN' && (
                       <button
                         className="btn btn-primary btn-sm"
-                        onClick={() => handleUpdateApptStatus(appt.id, 'IN_SERVICE')}
+                        onClick={() => handleUpdateApptStatus(appt.id, 'IN_PROGRESS')}
                       >
                         Start Service
                       </button>
                     )}
-                    {appt.status === 'IN_SERVICE' && (
+                    {appt.status === 'IN_PROGRESS' && (
                       <button
                         className="btn btn-success btn-sm"
                         onClick={() => handleUpdateApptStatus(appt.id, 'COMPLETED')}

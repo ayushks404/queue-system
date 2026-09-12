@@ -111,7 +111,7 @@ export const CustomerDashboard: React.FC = () => {
   };
 
   const upcomingAppointments = appointments.filter((a) =>
-    ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE'].includes(a.status)
+    ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'].includes(a.status)
   );
 
   const historyAppointments = appointments.filter((a) =>

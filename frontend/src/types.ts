@@ -85,7 +85,7 @@ export type AppointmentStatus =
   | 'PENDING'
   | 'CONFIRMED'
   | 'CHECKED_IN'
-  | 'IN_SERVICE'
+  | 'IN_PROGRESS'
   | 'COMPLETED'
   | 'CANCELLED'
   | 'NO_SHOW';
@@ -111,7 +111,7 @@ export interface Appointment {
 }
 
 export type QueuePriority = 'NORMAL' | 'PRIORITY' | 'EMERGENCY';
-export type QueueStatus = 'WAITING' | 'CALLED' | 'SERVING' | 'COMPLETED' | 'SKIPPED' | 'CANCELLED';
+export type QueueStatus = 'WAITING' | 'CALLED' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED' | 'CANCELLED';
 
 export interface QueueEntry {
   id: string;
