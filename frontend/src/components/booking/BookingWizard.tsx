@@ -180,8 +180,8 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ onSuccessNavigate,
       {/* Wizard Progress Stepper */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', gap: '0.5rem' }}>
         {[
-          { num: 1, label: 'Branch' },
-          { num: 2, label: 'Service' },
+          { num: 1, label: 'Clinic Branch' },
+          { num: 2, label: 'Department' },
           { num: 3, label: 'Time & Slot' },
           { num: 4, label: 'Confirm' },
         ].map((s, idx) => {
@@ -252,9 +252,9 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ onSuccessNavigate,
       {step === 1 && (
         <div>
           <div style={{ marginBottom: '1.5rem' }}>
-            <h2>Select Branch</h2>
+            <h2>Select Clinic / Hospital Branch</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
-              Choose a facility location for your appointment
+              Choose a facility location for your consultation
             </p>
           </div>
 
@@ -305,9 +305,9 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ onSuccessNavigate,
               <ArrowLeft size={16} /> Back
             </button>
             <div>
-              <h2>Select Service</h2>
+              <h2>Select Department / Consultation</h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                Branch: <strong>{selectedBranch?.name}</strong>
+                Clinic: <strong>{selectedBranch?.name}</strong>
               </p>
             </div>
           </div>
@@ -477,7 +477,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ onSuccessNavigate,
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedBranch?.address}</div>
               </div>
               <div>
-                <div className="form-label">Service</div>
+                <div className="form-label">Department / Consultation</div>
                 <div style={{ fontWeight: 600, fontSize: '1rem' }}>{selectedService?.name}</div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedService?.duration_minutes} minutes</div>
               </div>
@@ -488,18 +488,18 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ onSuccessNavigate,
                 </div>
               </div>
               <div>
-                <div className="form-label">Customer</div>
+                <div className="form-label">Patient</div>
                 <div style={{ fontWeight: 600, fontSize: '1rem' }}>{user?.name || user?.email}</div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{user?.phone || 'No phone'}</div>
               </div>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Special Notes / Requests (Optional)</label>
+              <label className="form-label">Special Notes / Medical Details (Optional)</label>
               <textarea
                 className="form-textarea"
                 rows={3}
-                placeholder="Any special accommodations or details for the staff..."
+                placeholder="Any symptoms, medical history, or accommodations needed..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
