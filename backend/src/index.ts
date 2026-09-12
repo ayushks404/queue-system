@@ -14,39 +14,26 @@ import waitlistRoutes from './modules/waitlist/waitlist.routes';
 import queueRoutes from './modules/queue/queue.routes';
 import notificationsRoutes from './modules/notifications/notifications.routes';
 import reportsRoutes from './modules/reports/reports.routes';
+import docsRoutes from './docs/swagger';
 import cors from 'cors';
 import { authLimiter, appointmentsLimiter } from './middleware/rateLimiter';
 import { registerWaitlistEventSubscribers } from './modules/waitlist/waitlist.events';
 import { registerNotificationSubscribers } from './modules/notifications/notifications.events';
+import { initEventBusRedis } from './events/bus';
 
+import { isOriginAllowed } from './lib/corsOrigins';
+
+initEventBusRedis();
 registerWaitlistEventSubscribers();
 registerNotificationSubscribers();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  'http://localhost',
-  'http://localhost:80',
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://127.0.0.1',
-  'http://127.0.0.1:80',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:5173',
-].filter(Boolean) as string[];
-
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (such as curl, supertest, mobile apps, same-origin)
-      if (!origin) return callback(null, true);
-      if (
-        allowedOrigins.includes(origin) ||
-        origin.startsWith('http://localhost') ||
-        origin.startsWith('http://127.0.0.1')
-      ) {
+      if (isOriginAllowed(origin)) {
         return callback(null, true);
       }
       return callback(null, false);
@@ -73,6 +60,7 @@ app.use('/api/waitlist', waitlistRoutes);
 app.use('/api/queue', queueRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/docs', docsRoutes);
 
 import http from 'http';
 import { initSocketServer } from './realtime/socket';

@@ -8,6 +8,8 @@ if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required');
 }
 
+import { isOriginAllowed } from '../lib/corsOrigins';
+
 let ioInstance: SocketIOServer | null = null;
 let subscribersRegistered = false;
 
@@ -20,8 +22,14 @@ export interface SocketUser {
 export function initSocketServer(httpServer: HttpServer): SocketIOServer {
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: '*',
-      methods: ['GET', 'POST', 'PATCH', 'DELETE']
+      origin: (origin, callback) => {
+        if (isOriginAllowed(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'), false);
+      },
+      methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+      credentials: true
     }
   });
 
