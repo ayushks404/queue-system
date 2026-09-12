@@ -60,6 +60,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchCurrentUser();
   }, [fetchCurrentUser]);
 
+  useEffect(() => {
+    const handleTokenRefreshed = (e: any) => {
+      const newToken = e.detail;
+      if (newToken) {
+        setToken(newToken);
+      }
+    };
+    window.addEventListener('token-refreshed', handleTokenRefreshed);
+    return () => {
+      window.removeEventListener('token-refreshed', handleTokenRefreshed);
+    };
+  }, []);
+
   const login = async (email: string, password: string): Promise<User> => {
     setIsLoading(true);
     try {

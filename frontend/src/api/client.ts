@@ -99,6 +99,9 @@ async function refreshAccessToken(): Promise<string | null> {
         const newToken = body?.data?.accessToken || body?.data?.access_token;
         if (newToken) {
           localStorage.setItem('accessToken', newToken);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('token-refreshed', { detail: newToken }));
+          }
           return newToken;
         }
         return null;
