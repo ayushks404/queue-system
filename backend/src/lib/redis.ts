@@ -11,3 +11,13 @@ export const redis = new Redis(REDIS_URL, {
     return Math.min(times * 50, 2000);
   }
 });
+
+export function createRedisClient(): Redis {
+  return new Redis(REDIS_URL, {
+    maxRetriesPerRequest: null,
+    lazyConnect: false,
+    retryStrategy(times) {
+      return Math.min(times * 50, 2000);
+    }
+  });
+}

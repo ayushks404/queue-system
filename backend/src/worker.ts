@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { prisma } from './lib/prisma';
+import { initEventBusRedis, closeEventBusRedis } from './events/bus';
 import { createReservationExpiryWorker, sweepExpiredReservations } from './queues/reservationExpiry.queue';
 import { createWaitlistWorker } from './queues/waitlist.queue';
 import { createAppointmentRemindersWorker, sendAppointmentReminders } from './queues/appointmentReminders.queue';
@@ -7,6 +8,8 @@ import { createAppointmentRemindersWorker, sendAppointmentReminders } from './qu
 async function main() {
   await prisma.$connect();
   console.log('[Worker] Connected to database');
+
+  initEventBusRedis();
 
   const reservationWorker = createReservationExpiryWorker();
   console.log('[Worker] Reservation expiry worker active');
@@ -51,6 +54,7 @@ async function main() {
     await reservationWorker.close();
     await waitlistWorker.close();
     await reminderWorker.close();
+    await closeEventBusRedis();
     await prisma.$disconnect();
     process.exit(0);
   };
