@@ -46,7 +46,39 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ onSuccessNavigate,
   // UI state
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [waitlistJoined, setWaitlistJoined] = useState<boolean>(false);
+  const [joinedWaitlists, setJoinedWaitlists] = useState<Record<string, boolean>>({});
+
+  const currentWaitlistKey =
+    selectedBranch && selectedService && selectedDate
+      ? `${selectedBranch.id}:${selectedService.id}:${selectedDate}`
+      : null;
+  const isWaitlistJoined = currentWaitlistKey ? !!joinedWaitlists[currentWaitlistKey] : false;
+
+  // Sync user's existing waitlists when on Step 3
+  useEffect(() => {
+    if (!user || step !== 3) return;
+    async function loadUserWaitlists() {
+      try {
+        const res = await api.get<{ data?: any[]; waitlist?: any[] }>('/waitlist/me');
+        const list = res.data || res.waitlist || [];
+        const map: Record<string, boolean> = {};
+        list.forEach((entry: any) => {
+          if (['WAITING', 'OFFERED'].includes(entry.status)) {
+            const dateStr = entry.requested_date ? entry.requested_date.split('T')[0] : '';
+            const bId = entry.branch_id || entry.branch?.id;
+            const sId = entry.service_id || entry.service?.id;
+            if (bId && sId && dateStr) {
+              map[`${bId}:${sId}:${dateStr}`] = true;
+            }
+          }
+        });
+        setJoinedWaitlists((prev) => ({ ...prev, ...map }));
+      } catch {
+        // silent fallback
+      }
+    }
+    loadUserWaitlists();
+  }, [user, step]);
 
   // Fetch branches and services on mount
   useEffect(() => {
@@ -159,15 +191,17 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ onSuccessNavigate,
       if (onOpenAuth) onOpenAuth();
       return;
     }
+    if (!selectedBranch || !selectedService || !selectedDate) return;
     try {
       setSubmitting(true);
       setError(null);
       await api.post('/waitlist', {
-        branch_id: selectedBranch!.id,
-        service_id: selectedService!.id,
+        branch_id: selectedBranch.id,
+        service_id: selectedService.id,
         preferred_date: selectedDate,
       });
-      setWaitlistJoined(true);
+      const key = `${selectedBranch.id}:${selectedService.id}:${selectedDate}`;
+      setJoinedWaitlists((prev) => ({ ...prev, [key]: true }));
     } catch (err: any) {
       setError(err.message || 'Failed to join waitlist');
     } finally {
@@ -399,7 +433,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ onSuccessNavigate,
                 </p>
 
                 {/* Waitlist Call-to-Action */}
-                {waitlistJoined ? (
+                {isWaitlistJoined ? (
                   <div style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '0.75rem', borderRadius: 'var(--radius-md)', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
                     <CheckCircle2 size={16} /> You have joined the Waitlist for this date!
                   </div>

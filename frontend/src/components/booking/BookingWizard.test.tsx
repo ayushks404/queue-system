@@ -197,4 +197,57 @@ describe('BookingWizard Component', () => {
 
     expect(await screen.findByText('The selected appointment slot is no longer available.')).toBeInTheDocument();
   });
+
+  it('isolates waitlist state per branch and date correctly', async () => {
+    const twoBranches = [
+      { id: 'b1', name: 'MediQ Main Campus', address: '12 MG Road', phone: '+91 124 4567890', is_active: true },
+      { id: 'b2', name: 'MediQ North Wing', address: 'Sector 45', phone: '+91 124 4567891', is_active: true },
+    ];
+    const mockUser = { id: 'u1', email: 'patient@queue.local', name: 'John Doe', role: 'CUSTOMER' };
+    localStorage.setItem('user', JSON.stringify(mockUser));
+    localStorage.setItem('accessToken', 'mock_token');
+
+    (api.get as any).mockImplementation((url: string) => {
+      if (url === '/auth/me') return Promise.resolve({ user: mockUser });
+      if (url === '/branches') return Promise.resolve({ branches: twoBranches });
+      if (url === '/services') return Promise.resolve({ services: mockServices });
+      if (url === '/waitlist/me') return Promise.resolve({ waitlist: [] });
+      if (url.startsWith('/availability')) return Promise.resolve({ available_slots: [] });
+      return Promise.resolve({});
+    });
+    (api.post as any).mockImplementation((url: string) => {
+      if (url === '/waitlist') return Promise.resolve({ success: true, data: { id: 'w1' } });
+      return Promise.resolve({});
+    });
+
+    render(
+      <AuthProvider>
+        <BookingWizard />
+      </AuthProvider>
+    );
+
+    // Step 1: Pick Branch 1
+    fireEvent.click(await screen.findByText('MediQ Main Campus'));
+    // Step 2: Pick Service
+    fireEvent.click(await screen.findByText('General OPD Consultation'));
+
+    // Step 3: No slots -> Join waitlist
+    const joinBtn = await screen.findByText('Join Waitlist for This Day');
+    fireEvent.click(joinBtn);
+
+    // Shows joined confirmation
+    expect(await screen.findByText('You have joined the Waitlist for this date!')).toBeInTheDocument();
+
+    // Go back to Step 2 then Step 1
+    fireEvent.click(screen.getByRole('button', { name: /Back/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Back/i }));
+
+    // Now pick Branch 2
+    fireEvent.click(await screen.findByText('MediQ North Wing'));
+    fireEvent.click(await screen.findByText('General OPD Consultation'));
+
+    // Branch 2 should NOT show "You have joined", but should show "Join Waitlist for This Day"
+    expect(await screen.findByText('Join Waitlist for This Day')).toBeInTheDocument();
+    expect(screen.queryByText('You have joined the Waitlist for this date!')).not.toBeInTheDocument();
+  });
 });
