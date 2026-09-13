@@ -26,6 +26,10 @@ export function canQueueTransition(from: string, to: string): boolean {
     const fromNorm = normalizeQueueStatus(from);
     const toNorm = normalizeQueueStatus(to);
 
+    if (fromNorm === toNorm) {
+      return true;
+    }
+
     const allowed = VALID_QUEUE_TRANSITIONS[fromNorm];
     if (!allowed) {
       return false;

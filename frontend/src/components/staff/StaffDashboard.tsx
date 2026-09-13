@@ -170,13 +170,18 @@ export const StaffDashboard: React.FC = () => {
   // Handle Update Queue Ticket Status
   const handleUpdateQueueStatus = async (id: string, status: string) => {
     try {
-      await api.patch(`/queue/${id}/status`, { status });
-      if (activeTicket?.id === id && (status === 'COMPLETED' || status === 'CANCELLED' || status === 'SKIPPED')) {
-        setActiveTicket(null);
+      if (activeTicket?.id === id) {
+        if (status === 'COMPLETED' || status === 'CANCELLED' || status === 'SKIPPED') {
+          setActiveTicket(null);
+        } else {
+          setActiveTicket((prev) => prev ? { ...prev, status: status as any } : null);
+        }
       }
+      await api.patch(`/queue/${id}/status`, { status });
       await fetchBranchData();
     } catch (err: any) {
       setFeedbackMessage({ type: 'error', text: err.message || 'Failed to update ticket status' });
+      await fetchBranchData();
     }
   };
 

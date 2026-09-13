@@ -28,6 +28,10 @@ export function canTransition(from: string, to: string): boolean {
     const fromNorm = normalizeStatus(from);
     const toNorm = normalizeStatus(to);
 
+    if (fromNorm === toNorm) {
+      return true;
+    }
+
     const allowed = VALID_TRANSITIONS[fromNorm];
     if (!allowed) {
       return false;
