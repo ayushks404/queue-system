@@ -23,7 +23,9 @@ import { initEventBusRedis } from './events/bus';
 
 import { isOriginAllowed } from './lib/corsOrigins';
 
-initEventBusRedis();
+if (process.env.NODE_ENV !== 'test') {
+  initEventBusRedis();
+}
 registerWaitlistEventSubscribers();
 registerNotificationSubscribers();
 
