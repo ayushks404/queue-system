@@ -75,7 +75,8 @@ async function main() {
     { name: 'Pediatrics Consultation', duration: 15, price: 400, capacity: 1, resourceType: 'ROOM', desc: 'Child health examination and general checkup' },
     { name: 'Blood Test / Lab Work', duration: 10, price: 250, capacity: 2, resourceType: 'COUNTER', desc: 'Diagnostic blood draws and pathology sampling' },
     { name: 'X-Ray Scan', duration: 15, price: 800, capacity: 1, resourceType: 'BAY', desc: 'Radiology imaging and diagnostic scans' },
-    { name: 'Vaccination', duration: 10, price: 200, capacity: 1, resourceType: 'BOOTH', desc: 'Immunization and routine vaccine administration' }
+    { name: 'Vaccination', duration: 10, price: 200, capacity: 1, resourceType: 'BOOTH', desc: 'Immunization and routine vaccine administration' },
+    { name: 'Executive Health Screening (3 Slots Only)', duration: 150, price: 1500, capacity: 1, resourceType: 'ROOM', desc: 'Comprehensive senior specialist health evaluation — strictly 3 appointment slots per day' }
   ];
 
   for (const s of servicesData) {
