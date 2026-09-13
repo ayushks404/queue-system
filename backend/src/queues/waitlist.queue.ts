@@ -2,14 +2,7 @@ import { Queue, Worker, Job } from 'bullmq';
 import { prisma } from '../lib/prisma';
 import { eventBus } from '../events/bus';
 import { invalidateAvailabilityCache } from '../modules/booking/availability.controller';
-
-const REDIS_HOST = process.env.REDIS_HOST || '127.0.0.1';
-const REDIS_PORT = Number(process.env.REDIS_PORT) || 6379;
-
-const connection = {
-  host: REDIS_HOST,
-  port: REDIS_PORT
-};
+import { bullmqConnection as connection } from '../lib/redis';
 
 let waitlistQueueInstance: Queue | null = null;
 
