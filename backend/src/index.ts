@@ -85,6 +85,36 @@ async function ensureDefaultBranchHours(): Promise<void> {
   }
 }
 
+async function ensureDefaultBranchResources(): Promise<void> {
+  const branches = await prisma.branch.findMany({
+    include: { resources: true }
+  });
+
+  const defaultResources = [
+    { name: 'Consultation Room 1', type: 'ROOM' },
+    { name: 'Consultation Room 2', type: 'ROOM' },
+    { name: 'Dental Chair 1', type: 'CHAIR' },
+    { name: 'X-Ray Bay', type: 'BAY' },
+    { name: 'Lab Counter 1', type: 'COUNTER' },
+    { name: 'Lab Counter 2', type: 'COUNTER' },
+    { name: 'Vaccination Booth', type: 'BOOTH' }
+  ];
+
+  for (const branch of branches) {
+    if (branch.resources.length === 0) {
+      await prisma.resource.createMany({
+        data: defaultResources.map((r) => ({
+          branch_id: branch.id,
+          name: r.name,
+          type: r.type,
+          is_active: true
+        }))
+      });
+      console.log(`[Startup] Seeded default resources for branch: ${branch.name}`);
+    }
+  }
+}
+
 async function ensureAdminSeeded(): Promise<void> {
   const email = process.env.ADMIN_EMAIL || 'admin@queue.local';
   const password = process.env.ADMIN_PASSWORD || 'AdminPassword123!';
@@ -110,6 +140,7 @@ export async function startServer() {
   await prisma.$connect();
   console.log('Database connected successfully');
   await ensureDefaultBranchHours();
+  await ensureDefaultBranchResources();
   await ensureAdminSeeded();
   const server = http.createServer(app);
   initSocketServer(server);

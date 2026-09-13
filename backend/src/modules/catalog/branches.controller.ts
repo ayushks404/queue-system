@@ -47,6 +47,17 @@ export async function createBranch(req: Request, res: Response) {
             open_time: '09:00',
             close_time: '17:00'
           }))
+        },
+        resources: {
+          create: [
+            { name: 'Consultation Room 1', type: 'ROOM', is_active: true },
+            { name: 'Consultation Room 2', type: 'ROOM', is_active: true },
+            { name: 'Dental Chair 1', type: 'CHAIR', is_active: true },
+            { name: 'X-Ray Bay', type: 'BAY', is_active: true },
+            { name: 'Lab Counter 1', type: 'COUNTER', is_active: true },
+            { name: 'Lab Counter 2', type: 'COUNTER', is_active: true },
+            { name: 'Vaccination Booth', type: 'BOOTH', is_active: true }
+          ]
         }
       }
     });

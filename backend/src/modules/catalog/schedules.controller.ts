@@ -1,5 +1,17 @@
 import { Request, Response } from 'express';
 import { prisma } from '../../lib/prisma';
+import { redis } from '../../lib/redis';
+
+async function invalidateBranchAvailability(branchId: string) {
+  try {
+    const keys = await redis.keys(`avail:${branchId}:*`);
+    if (keys.length > 0) {
+      await redis.del(...keys);
+    }
+  } catch (err) {
+    console.error('Failed to invalidate branch availability cache', err);
+  }
+}
 
 export async function setBusinessHours(req: Request, res: Response) {
   try {
@@ -37,6 +49,8 @@ export async function setBusinessHours(req: Request, res: Response) {
         });
       }
     });
+
+    await invalidateBranchAvailability(branchId);
 
     const updatedHours = await prisma.businessHour.findMany({
       where: { branch_id: branchId },
@@ -103,6 +117,8 @@ export async function createHoliday(req: Request, res: Response) {
       }
     });
 
+    await invalidateBranchAvailability(branchId);
+
     return res.status(201).json({
       success: true,
       data: holiday
@@ -150,6 +166,7 @@ export async function deleteHoliday(req: Request, res: Response) {
     }
 
     await prisma.holiday.delete({ where: { id: holidayId } });
+    await invalidateBranchAvailability(branchId);
 
     return res.status(200).json({
       success: true,

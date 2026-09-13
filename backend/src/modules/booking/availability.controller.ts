@@ -135,11 +135,15 @@ export async function getAvailability(req: Request, res: Response): Promise<void
     const requiredServiceResources = await prisma.serviceResource.findMany({
       where: { service_id: serviceId }
     });
-    const requiredTypes = [...new Set(requiredServiceResources.map((r) => r.resource_type))];
 
     const activeBranchResources = await prisma.resource.findMany({
       where: { branch_id: branchId, is_active: true }
     });
+
+    // Only enforce granular resource constraints if the branch actually manages resources
+    const requiredTypes = activeBranchResources.length > 0
+      ? [...new Set(requiredServiceResources.map((r) => r.resource_type))]
+      : [];
 
     const totalResourcesByType: Record<string, number> = {};
     for (const r of activeBranchResources) {
