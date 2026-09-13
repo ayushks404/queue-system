@@ -78,8 +78,8 @@ async function ensureDefaultBranchHours(): Promise<void> {
         data: [0, 1, 2, 3, 4, 5, 6].map((day) => ({
           branch_id: branch.id,
           day_of_week: day,
-          open_time: '09:00',
-          close_time: '17:00'
+          open_time: '08:00',
+          close_time: '20:00'
         }))
       });
       console.log(`[Startup] Seeded default business hours for branch: ${branch.name}`);

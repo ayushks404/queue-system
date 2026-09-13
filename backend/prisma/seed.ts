@@ -37,6 +37,16 @@ async function main() {
             close_time: '20:00'
           }))
         });
+      } else {
+        await prisma.businessHour.updateMany({
+          where: { branch_id: branchId },
+          data: {
+            open_time: '08:00',
+            close_time: '20:00',
+            break_start: null,
+            break_end: null
+          }
+        });
       }
 
       const resources = [
@@ -76,16 +86,24 @@ async function main() {
     { name: 'Blood Test / Lab Work', duration: 10, price: 250, capacity: 2, resourceType: 'COUNTER', desc: 'Diagnostic blood draws and pathology sampling' },
     { name: 'X-Ray Scan', duration: 15, price: 800, capacity: 1, resourceType: 'BAY', desc: 'Radiology imaging and diagnostic scans' },
     { name: 'Vaccination', duration: 10, price: 200, capacity: 1, resourceType: 'BOOTH', desc: 'Immunization and routine vaccine administration' },
-    { name: 'Executive Health Screening (3 Slots Only)', duration: 150, price: 1500, capacity: 1, resourceType: 'ROOM', desc: 'Comprehensive senior specialist health evaluation — strictly 3 appointment slots per day' }
+    { name: 'Executive Health Screening (4 Slots Only)', duration: 150, price: 1500, capacity: 1, resourceType: 'ROOM', desc: 'Comprehensive senior specialist health evaluation — strictly 4 appointment slots per day' }
   ];
 
   for (const s of servicesData) {
-    const existing = await prisma.service.findFirst({ where: { name: s.name } });
+    const existing = await prisma.service.findFirst({
+      where: {
+        OR: [
+          { name: s.name },
+          { name: 'Executive Health Screening (3 Slots Only)' }
+        ]
+      }
+    });
     let service: any;
     if (existing) {
       service = await prisma.service.update({
         where: { id: existing.id },
         data: {
+          name: s.name,
           duration_minutes: s.duration,
           price: s.price,
           capacity: s.capacity,
