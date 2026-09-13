@@ -685,7 +685,7 @@ export const StaffDashboard: React.FC = () => {
                   value={walkInPriority}
                   onChange={(e) => setWalkInPriority(e.target.value as any)}
                 >
-                  <option value="NORMAL">Routine (Standard FIFO)</option>
+                  <option value="NORMAL">Routine</option>
                   <option value="PRIORITY">Senior Citizen / Expecting Mother</option>
                   <option value="EMERGENCY">Emergency (Immediate Dispatch)</option>
                 </select>
