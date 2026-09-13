@@ -138,12 +138,40 @@ async function ensureAdminSeeded(): Promise<void> {
   console.log(`[Startup] Admin ensured: ${email}`);
 }
 
+async function startInlineWorkerIfEnabled() {
+  // Free Render plans don't support a separate Background Worker service.
+  // Set RUN_WORKER_INLINE=true on the backend web service to run the same
+  // BullMQ workers + sweep intervals inside this process instead.
+  if (process.env.RUN_WORKER_INLINE !== 'true') return;
+
+  const { createReservationExpiryWorker, sweepExpiredReservations } = await import('./queues/reservationExpiry.queue');
+  const { createWaitlistWorker } = await import('./queues/waitlist.queue');
+  const { createAppointmentRemindersWorker, sendAppointmentReminders } = await import('./queues/appointmentReminders.queue');
+
+  createReservationExpiryWorker();
+  createWaitlistWorker();
+  createAppointmentRemindersWorker();
+  console.log('[InlineWorker] BullMQ workers active inside web process');
+
+  await sweepExpiredReservations();
+  await sendAppointmentReminders();
+
+  setInterval(() => {
+    sweepExpiredReservations().catch((err) => console.error('[InlineWorker] Reservation sweep error:', err));
+  }, 30000);
+
+  setInterval(() => {
+    sendAppointmentReminders().catch((err) => console.error('[InlineWorker] Reminder sweep error:', err));
+  }, 300000);
+}
+
 export async function startServer() {
   await prisma.$connect();
   console.log('Database connected successfully');
   await ensureDefaultBranchHours();
   await ensureDefaultBranchResources();
   await ensureAdminSeeded();
+  await startInlineWorkerIfEnabled();
   const server = http.createServer(app);
   initSocketServer(server);
   return server.listen(port, () => {
