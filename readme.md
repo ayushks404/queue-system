@@ -294,7 +294,7 @@ A direct map from the assignment brief to where each requirement is implemented 
 | 20 | Background jobs, Docker, Git, documentation | [§17](#17-background-jobs), [§21](#21-cicd-pipeline), [§24](#24-git-history), this file | ✅ |
 | — | GitHub repo / live deployment / working app *(required deliverables)* | [§9](#9-live-deployment) | ✅ |
 | — | CI/CD pipeline *(optional deliverable)* | [§21](#21-cicd-pipeline) | ✅ |
-| — | .env.example, Docker config, Swagger, sample credentials, screenshots *(optional)* | [§8](#8-environment-variables), [§10](#10-sample-credentials), [§22](#22-screenshots) | ✅ (screenshots pending capture) |
+| — | .env.example, Docker config, Swagger, sample credentials, screenshots *(optional)* | [§8](#8-environment-variables), [§10](#10-sample-credentials), [§22](#22-screenshots) | ✅ |
 
 ---
 
@@ -725,15 +725,47 @@ flowchart LR
 
 ## 22. Screenshots
 
-> Screenshots below are captured from the live deployment (§9) using the sample accounts (§10).
+> Captured from the live deployment (§9) using the sample accounts (§10).
 
-| | |
+### Customer — Booking flow
+
+Branch → department/service → confirm-with-hold-timer → confirmed, plus the in-app notification that fires on confirmation.
+
+| Select branch | Select department / service |
 |---|---|
-| Booking flow — branch → service → date/time → confirm | _screenshot pending_ |
-| Live queue position update (real-time, two tabs) | _screenshot pending_ |
-| Staff — current queue & call next | _screenshot pending_ |
-| Admin — analytics & reports | _screenshot pending_ |
-| Swagger UI (`/api/docs`) | _screenshot pending_ |
+| ![Select clinic/hospital branch](docs/screenshots/01-select-branch.png) | ![Select department / consultation](docs/screenshots/02-select-department.png) |
+
+| Confirm appointment (5-min hold, §14.3) | Appointment confirmed |
+|---|---|
+| ![Confirm appointment with countdown](docs/screenshots/03-confirm-appointment.png) | ![Appointment confirmed](docs/screenshots/04-appointment-confirmed.png) |
+
+**In-app notifications** ([§15.3](#153-notification-flow)) — fired on confirmation, delivered live over the `user:<id>` Socket.IO room:
+
+![Notifications drawer](docs/screenshots/05-notifications.png)
+
+### Staff — Queue operations ([§15.2](#152-real-time-queue--walk-in-flow))
+
+Walk-in queue lifecycle: waiting → called/in-progress → completed, priority-ordered (`EMERGENCY` / `SENIOR / EXPECTING MOTHER` shown here outranking normal tickets).
+
+| Waiting — 2 tickets in queue | Serving — token called, service started |
+|---|---|
+| ![Staff queue — waiting](docs/screenshots/06-staff-queue-waiting.png) | ![Staff queue — currently serving](docs/screenshots/07-staff-queue-serving.png) |
+
+| In progress |
+|---|
+| ![Staff queue — in progress](docs/screenshots/08-staff-queue-in-progress.png) |
+
+### Admin — Catalog & configuration ([§11](#11-roles--permissions))
+
+| Services (duration, capacity, price) | Resources (rooms/chairs/counters per branch) |
+|---|---|
+| ![Admin — services catalog](docs/screenshots/09-admin-services.png) | ![Admin — resources catalog](docs/screenshots/10-admin-resources.png) |
+
+| Users & role management |
+|---|
+| ![Admin — users and roles](docs/screenshots/11-admin-users.png) |
+
+> Admin **analytics & reports** and the **Swagger UI** (`/api/docs`) aren't captured above yet — both are live and reachable directly at the URLs in [§9](#9-live-deployment) / [§13](#13-rest-api).
 
 ---
 
