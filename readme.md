@@ -379,12 +379,9 @@ All accounts below exist on the live deployment (§9) and in Docker Compose once
 | Role | Name | Email | Password | Dashboard / Access |
 |---|---|---|---|---|
 | Admin | System Admin | `admin@queue.local` | `AdminPassword123!` | Full admin control — branches, services, resources, schedules, holidays, analytics & reports |
-| Staff | Dr. Sarah Jenkins | `staff1@queue.local` | `StaffPassword123!` | Staff queue management, calling next patient, status transitions |
-| Staff | Dr. Rajesh Sharma | `staff2@queue.local` | `StaffPassword123!` | Staff queue management, calling next patient, status transitions |
-| Staff | Nurse Emily Chen | `staff3@queue.local` | `StaffPassword123!` | Staff queue management, calling next patient, status transitions |
-| Customer | John Doe | `customer1@queue.local` | `CustomerPassword123!` | Appointment booking, live queue ticket tracking, notifications |
-| Customer | Jane Smith | `customer2@queue.local` | `CustomerPassword123!` | Appointment booking, live queue ticket tracking, notifications |
-| Customer | Robert Taylor | `customer3@queue.local` | `CustomerPassword123!` | Appointment booking, live queue ticket tracking, notifications |
+| Staff | staff1 | `staff1@gmail.com` | `12345678` | Staff queue management, calling next patient, status transitions |
+| Customer | c2 | `c2@gmail.com` | `12345678` | Appointment booking, live queue ticket tracking, notifications |
+| Customer | c1 | `c1@gmail.com` | `12345678` | Appointment booking, live queue ticket tracking, notifications |
 
 ---
 
