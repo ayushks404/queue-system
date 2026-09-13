@@ -32,7 +32,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const newSocket = io({
+    const newSocket = io(import.meta.env.VITE_SOCKET_URL || undefined, {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
