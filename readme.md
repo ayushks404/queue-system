@@ -433,6 +433,8 @@ erDiagram
     BRANCHES ||--o{ HOLIDAYS : has
     BRANCHES ||--o{ RESOURCES : has
     BRANCHES ||--o{ APPOINTMENTS : hosts
+    BRANCHES ||--o{ RESERVATIONS : hosts
+    BRANCHES ||--o{ WAITLIST : hosts
     BRANCHES ||--o{ QUEUE_ENTRIES : has
 
     SERVICES ||--o{ SERVICE_RESOURCES : requires
@@ -440,15 +442,63 @@ erDiagram
     SERVICES ||--o{ RESERVATIONS : held_for
     SERVICES ||--o{ WAITLIST : requested_for
 
+    RESOURCES ||--o{ APPOINTMENT_RESOURCES : assigned_to
     APPOINTMENTS ||--o{ APPOINTMENT_RESOURCES : allocates
     APPOINTMENTS ||--o{ QUEUE_ENTRIES : linked_to
     APPOINTMENTS ||--o{ AUDIT_LOGS : logs
-    RESOURCES ||--o{ APPOINTMENT_RESOURCES : assigned_to
 
     USERS {
         uuid id PK
         string email UK
+        string password_hash
+        string name
+        string phone
         string role
+        datetime created_at
+    }
+    BRANCHES {
+        uuid id PK
+        string name
+        string address
+        string phone
+        boolean is_active
+    }
+    BUSINESS_HOURS {
+        uuid id PK
+        uuid branch_id FK
+        int day_of_week
+        string open_time
+        string close_time
+        string break_start
+        string break_end
+    }
+    HOLIDAYS {
+        uuid id PK
+        uuid branch_id FK
+        date holiday_date
+        string reason
+    }
+    SERVICES {
+        uuid id PK
+        string name
+        string description
+        int duration_minutes
+        decimal price
+        int capacity
+        int buffer_time_minutes
+        boolean is_active
+    }
+    RESOURCES {
+        uuid id PK
+        uuid branch_id FK
+        string name
+        string type
+        boolean is_active
+    }
+    SERVICE_RESOURCES {
+        uuid id PK
+        uuid service_id FK
+        string resource_type
     }
     APPOINTMENTS {
         uuid id PK
@@ -456,25 +506,68 @@ erDiagram
         uuid user_id FK
         uuid branch_id FK
         uuid service_id FK
+        date appointment_date
+        string start_time
+        string end_time
         string status
+        string notes
         string idempotency_key
+        datetime reminder_sent_at
+        datetime created_at
+    }
+    APPOINTMENT_RESOURCES {
+        uuid id PK
+        uuid appointment_id FK
+        uuid resource_id FK
     }
     RESERVATIONS {
         uuid id PK
+        uuid user_id FK
         uuid branch_id FK
         uuid service_id FK
         date slot_date
         string slot_time
-        timestamp expires_at
+        datetime expires_at
+    }
+    WAITLIST {
+        uuid id PK
+        uuid user_id FK
+        uuid branch_id FK
+        uuid service_id FK
+        date requested_date
+        string requested_time
+        string status
+        uuid reservation_id
+        datetime created_at
     }
     QUEUE_ENTRIES {
         uuid id PK
         uuid branch_id FK
         uuid appointment_id FK
+        string customer_name
+        string phone
         string priority
         int priority_rank
-        int queue_number
         string status
+        int queue_number
+        datetime created_at
+    }
+    NOTIFICATIONS {
+        uuid id PK
+        uuid user_id FK
+        string type
+        string message
+        boolean is_read
+        datetime created_at
+    }
+    AUDIT_LOGS {
+        uuid id PK
+        uuid appointment_id FK
+        string action
+        string reason
+        string old_status
+        string new_status
+        datetime created_at
     }
 ```
 
